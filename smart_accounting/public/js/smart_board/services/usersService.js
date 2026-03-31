@@ -21,4 +21,36 @@ export class UsersService {
       limit: Number(limit) || 100,
     }));
   }
+
+  static async createUser(payload = {}) {
+    const r = await frappe.call({
+      method: 'smart_accounting.api.users.create_user',
+      type: 'POST',
+      args: { payload },
+    });
+    return r?.message?.item || null;
+  }
+
+  static async updateUser(payload = {}) {
+    const r = await frappe.call({
+      method: 'smart_accounting.api.users.update_user',
+      type: 'POST',
+      args: { payload },
+    });
+    return r?.message?.item || null;
+  }
+
+  static async setUserPassword({ name, newPassword } = {}) {
+    const r = await frappe.call({
+      method: 'smart_accounting.api.users.set_user_password',
+      type: 'POST',
+      args: {
+        payload: {
+          name: String(name || '').trim(),
+          new_password: String(newPassword || ''),
+        }
+      },
+    });
+    return !!r?.message?.ok;
+  }
 }
