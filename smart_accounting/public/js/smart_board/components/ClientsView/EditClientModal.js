@@ -3,10 +3,12 @@
  * - UI-only: edit core client fields.
  */
 import { Modal } from '../Common/Modal.js';
+import { MultiLinkPicker } from '../Common/MultiLinkPicker.js';
 import { escapeHtml } from '../../utils/dom.js';
 import { DoctypeMetaService } from '../../services/doctypeMetaService.js';
 import { formatClientName } from '../../utils/clientNameFormat.js';
 import { ClientsService } from '../../services/clientsService.js';
+import { UserPickerService } from '../../services/userPickerService.js';
 
 export class EditClientModal {
   constructor({ title = 'Edit Client', initial = {}, onSubmit, onClose } = {}) {
@@ -16,6 +18,7 @@ export class EditClientModal {
     this.onClose = onClose || (() => {});
     this._modal = null;
     this._root = null;
+    this._partnerInput = null;
   }
 
   async open() {
@@ -42,6 +45,11 @@ export class EditClientModal {
               <option value="" disabled selected>Loading...</option>
             </select>
           </div>
+        </div>
+
+        <div class="sb-newproj__row">
+          <label class="sb-newproj__label">Partner (optional)</label>
+          <div id="sbEditClientPartner"></div>
         </div>
 
         <div class="sb-newproj__error text-danger" id="sbEditClientError" style="display:none;"></div>
@@ -71,6 +79,7 @@ export class EditClientModal {
     if (nameEl) nameEl.value = this.initial.customer_name || this.initial.name || '';
 
     await this._loadSelectOptions();
+    this._mountPartnerInput();
 
     // Apply initial selects after options load
     const typeSel = content.querySelector('#sbEditClientEntityType');
@@ -90,6 +99,8 @@ export class EditClientModal {
   }
 
   close() {
+    try { this._partnerInput?.destroy?.(); } catch (e) {}
+    this._partnerInput = null;
     this._modal?.close?.();
     this._modal = null;
     this._root = null;
@@ -128,11 +139,27 @@ export class EditClientModal {
     `;
   }
 
+  _mountPartnerInput() {
+    const mount = this._root?.querySelector?.('#sbEditClientPartner');
+    if (!mount) return;
+    try { this._partnerInput?.destroy?.(); } catch (e) {}
+    this._partnerInput = new MultiLinkPicker(mount, {
+      doctype: 'User',
+      placeholder: 'Search partner...',
+      initialValues: this.initial.custom_partner ? [this.initial.custom_partner] : [],
+      defaultList: () => UserPickerService.defaultUserList(),
+      searchProvider: (txt) => UserPickerService.searchUserNames(txt),
+      resolveMeta: (values) => UserPickerService.resolveUserMeta(values),
+      max: 1,
+    });
+  }
+
   async _handleSubmit() {
     this._setError('');
     const customer_name = String(this._root?.querySelector?.('#sbEditClientName')?.value || '').trim();
     const entity_type = String(this._root?.querySelector?.('#sbEditClientEntityType')?.value || '').trim();
     const year_end = String(this._root?.querySelector?.('#sbEditClientYearEnd')?.value || '').trim();
+    const custom_partner = String((this._partnerInput?.getValue?.() || [])[0] || '').trim();
 
     if (!customer_name) {
       this._setError('Client Name is required');
@@ -154,13 +181,14 @@ export class EditClientModal {
         suggested,
         entity_type,
         year_end,
+        custom_partner,
       });
     }
 
-    return this._submitUpdate({ customer_name, entity_type, year_end });
+    return this._submitUpdate({ customer_name, entity_type, year_end, custom_partner });
   }
 
-  async _submitUpdate({ customer_name, entity_type, year_end }) {
+  async _submitUpdate({ customer_name, entity_type, year_end, custom_partner }) {
     const btn = this._modal?._overlay?.querySelector?.('#sbEditClientSave');
     if (btn) btn.disabled = true;
     try {
@@ -171,7 +199,7 @@ export class EditClientModal {
         this._setError('Client name already exists. Please use a unique name.');
         return;
       }
-      await this.onSubmit({ name: this.initial.name, customer_name, entity_type, year_end });
+      await this.onSubmit({ name: this.initial.name, customer_name, entity_type, year_end, custom_partner: custom_partner || null });
       this.close();
     } catch (e) {
       this._setError(e?.message || String(e));
@@ -180,7 +208,7 @@ export class EditClientModal {
     }
   }
 
-  async _chooseNameAndSubmit({ rawName, suggested, entity_type, year_end }) {
+  async _chooseNameAndSubmit({ rawName, suggested, entity_type, year_end, custom_partner }) {
     return await new Promise((resolve) => {
       const content = document.createElement('div');
       content.innerHTML = `
@@ -211,12 +239,12 @@ export class EditClientModal {
 
       footer.querySelector('#sbEditNameUseRaw')?.addEventListener('click', () => {
         modal.close();
-        this._submitUpdate({ customer_name: rawName, entity_type, year_end });
+        this._submitUpdate({ customer_name: rawName, entity_type, year_end, custom_partner });
         resolve(rawName);
       });
       footer.querySelector('#sbEditNameUseSuggested')?.addEventListener('click', () => {
         modal.close();
-        this._submitUpdate({ customer_name: suggested, entity_type, year_end });
+        this._submitUpdate({ customer_name: suggested, entity_type, year_end, custom_partner });
         resolve(suggested);
       });
     });

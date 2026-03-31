@@ -3,11 +3,13 @@
  * - UI-only: minimal customer creation form.
  */
 import { Modal } from '../Common/Modal.js';
+import { MultiLinkPicker } from '../Common/MultiLinkPicker.js';
 import { escapeHtml } from '../../utils/dom.js';
 import { DoctypeMetaService } from '../../services/doctypeMetaService.js';
 import { formatClientName } from '../../utils/clientNameFormat.js';
 import { ClientsService } from '../../services/clientsService.js';
 import { confirmDialog } from '../../services/uiAdapter.js';
+import { UserPickerService } from '../../services/userPickerService.js';
 
 function mapEntityTypeFromCustomerType(customerType) {
   const t = String(customerType || '').trim().toLowerCase();
@@ -27,6 +29,7 @@ export class NewClientModal {
     this._root = null;
     this._nameChoice = null;
     this._initialSnapshot = null;
+    this._partnerInput = null;
   }
 
   async open() {
@@ -59,6 +62,10 @@ export class NewClientModal {
           <div class="sb-newproj__row" style="min-width:220px; flex:1;">
             <label class="sb-newproj__label">ABN (optional)</label>
             <input class="form-control" id="sbNewClientAbn" type="text" placeholder="(optional)" />
+          </div>
+          <div class="sb-newproj__row" style="min-width:220px; flex:1;">
+            <label class="sb-newproj__label">Partner (optional)</label>
+            <div id="sbNewClientPartner"></div>
           </div>
         </div>
 
@@ -95,6 +102,7 @@ export class NewClientModal {
 
     // Load select options from backend meta (single source of truth)
     await this._loadSelectOptions();
+    this._mountPartnerInput();
     this._initialSnapshot = this._snapshotForm();
 
     // Bind
@@ -118,6 +126,8 @@ export class NewClientModal {
   }
 
   close() {
+    try { this._partnerInput?.destroy?.(); } catch (e) {}
+    this._partnerInput = null;
     this._modal?.close?.();
     this._modal = null;
     this._root = null;
@@ -156,12 +166,28 @@ export class NewClientModal {
     `;
   }
 
+  _mountPartnerInput() {
+    const mount = this._root?.querySelector?.('#sbNewClientPartner');
+    if (!mount) return;
+    try { this._partnerInput?.destroy?.(); } catch (e) {}
+    this._partnerInput = new MultiLinkPicker(mount, {
+      doctype: 'User',
+      placeholder: 'Search partner...',
+      initialValues: this.initial.custom_partner ? [this.initial.custom_partner] : [],
+      defaultList: () => UserPickerService.defaultUserList(),
+      searchProvider: (txt) => UserPickerService.searchUserNames(txt),
+      resolveMeta: (values) => UserPickerService.resolveUserMeta(values),
+      max: 1,
+    });
+  }
+
   _snapshotForm() {
     return {
       customer_name: String(this._root?.querySelector?.('#sbNewClientName')?.value || '').trim(),
       customer_type: String(this._root?.querySelector?.('#sbNewClientType')?.value || '').trim(),
       year_end: String(this._root?.querySelector?.('#sbNewClientYearEnd')?.value || '').trim(),
       abn: String(this._root?.querySelector?.('#sbNewClientAbn')?.value || '').trim(),
+      custom_partner: String((this._partnerInput?.getValue?.() || [])[0] || '').trim(),
     };
   }
 
@@ -185,6 +211,7 @@ export class NewClientModal {
 
     const year_end = String(this._root?.querySelector?.('#sbNewClientYearEnd')?.value || '').trim();
     const abn = String(this._root?.querySelector?.('#sbNewClientAbn')?.value || '').trim();
+    const custom_partner = String((this._partnerInput?.getValue?.() || [])[0] || '').trim();
 
     if (!customer_name) {
       this._setError('Client Name is required');
@@ -207,6 +234,7 @@ export class NewClientModal {
           customer_type,
           year_end,
           abn,
+          custom_partner,
         });
       }
     }
@@ -222,10 +250,10 @@ export class NewClientModal {
 
     const btn = this._modal?._overlay?.querySelector?.('#sbNewClientCreate');
     if (btn) btn.disabled = true;
-    return this._submitClient({ customer_name, customer_type, primary_entity, btn });
+    return this._submitClient({ customer_name, customer_type, primary_entity, custom_partner, btn });
   }
 
-  async _submitClient({ customer_name, customer_type, primary_entity, btn }) {
+  async _submitClient({ customer_name, customer_type, primary_entity, custom_partner, btn }) {
     try {
       // Name must be unique; do not allow duplicate create.
       const existsResp = await ClientsService.checkClientNameExists(customer_name);
@@ -233,7 +261,7 @@ export class NewClientModal {
         this._setError('Client name already exists. Please use a unique name.');
         return;
       }
-      await this.onSubmit({ customer_name, customer_type, primary_entity });
+      await this.onSubmit({ customer_name, customer_type, primary_entity, custom_partner: custom_partner || null });
       this.close();
     } catch (e) {
       this._setError(e?.message || String(e));
@@ -242,7 +270,7 @@ export class NewClientModal {
     }
   }
 
-  async _chooseNameAndSubmit({ rawName, suggested, customer_type, year_end, abn }) {
+  async _chooseNameAndSubmit({ rawName, suggested, customer_type, year_end, abn, custom_partner }) {
     return await new Promise((resolve) => {
       const content = document.createElement('div');
       content.innerHTML = `
@@ -284,6 +312,7 @@ export class NewClientModal {
             year_end: year_end,
             abn: abn || null,
           },
+          custom_partner,
           btn: this._modal?._overlay?.querySelector?.('#sbNewClientCreate'),
         });
         resolve(choice);
@@ -301,6 +330,7 @@ export class NewClientModal {
             year_end: year_end,
             abn: abn || null,
           },
+          custom_partner,
           btn: this._modal?._overlay?.querySelector?.('#sbNewClientCreate'),
         });
         resolve(choice);

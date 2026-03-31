@@ -26,7 +26,7 @@ export class ClientsTable {
     const err = this._state.error;
     const hasMore = this._state.hasMore !== false;
     const loadingMore = !!this._state.loadingMore;
-    const cols = Array.isArray(this._state.columns) && this._state.columns.length ? this._state.columns : ['customer_name','entity_type','abn','year_end','entities_count'];
+    const cols = Array.isArray(this._state.columns) && this._state.columns.length ? this._state.columns : ['customer_name','custom_partner','entity_type','abn','year_end','entities_count'];
     const totalCount = (this._state.totalCount == null) ? null : Number(this._state.totalCount);
     const showing = items.length;
     const archivedMode = !!this._state.archivedMode;
@@ -37,6 +37,20 @@ export class ClientsTable {
     const valueFor = (client, field) => {
       const pe = client?.primary_entity || null;
       if (field === 'customer_name') return escapeHtml(client?.customer_name || client?.name || '—');
+      if (field === 'custom_partner') {
+        const label = escapeHtml(client?.custom_partner_label || client?.custom_partner || '—');
+        const img = escapeHtml(client?.custom_partner_image || '');
+        if (!client?.custom_partner) return label;
+        const initial = escapeHtml(String(client?.custom_partner_label || client?.custom_partner || 'U').trim().charAt(0).toUpperCase() || 'U');
+        return `
+          <span style="display:inline-flex;align-items:center;gap:8px;">
+            ${img
+              ? `<img src="${img}" alt="" style="width:24px;height:24px;border-radius:999px;object-fit:cover;" />`
+              : `<span style="width:24px;height:24px;border-radius:999px;background:#e5e7eb;color:#374151;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;">${initial}</span>`}
+            <span>${label}</span>
+          </span>
+        `;
+      }
       if (field === 'customer_group') return escapeHtml(client?.customer_group || '—');
       if (field === 'territory') return escapeHtml(client?.territory || '—');
       if (field === 'entities_count') return `<span class="text-muted">${Number(client?.entities_count || 0) || '—'}</span>`;
@@ -66,6 +80,7 @@ export class ClientsTable {
     const labelFor = (field) => ({
       name: 'ID',
       customer_name: 'Client',
+      custom_partner: 'Partner',
       project_count: 'Projects',
       active_project_count: 'Active',
       entity_type: 'Entity Type',

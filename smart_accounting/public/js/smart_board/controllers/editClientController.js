@@ -23,6 +23,7 @@ export async function openEditClientFlow({ app, client, onUpdated } = {}) {
     customer_name: client?.customer_name || client?.name,
     entity_type: primary?.entity_type || '',
     year_end: primary?.year_end || '',
+    custom_partner: client?.custom_partner || '',
   };
 
   const modal = new EditClientModal({

@@ -381,7 +381,18 @@ export class MultiLinkPicker {
     const set = new Set(this.values);
     if (set.has(v)) set.delete(v);
     else {
-      if (this.max != null && Number.isFinite(this.max) && this.values.length >= this.max) return;
+      if (this.max != null && Number.isFinite(this.max) && this.values.length >= this.max) {
+        if (Number(this.max) === 1) {
+          this.values = [v];
+          this._renderChips();
+          const txt = (this._input?.value || '').trim();
+          if (txt) this._search(txt);
+          else this._showDefault();
+          this.onChange(this.getValue());
+          return;
+        }
+        return;
+      }
       set.add(v);
     }
     this.values = this._uniq(Array.from(set));

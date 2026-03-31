@@ -39,6 +39,8 @@ class CustomProject(Project):
         # Auto-sync Project Year End on creation when empty:
         # source of truth is Customer Entity.year_end.
         self._sync_year_end_from_customer_entity_on_create()
+        # Auto-fill Partner role from Customer.custom_partner when absent.
+        self._sync_partner_from_customer_on_create()
 
         try:
             f = self.meta.get_field("status") if getattr(self, "meta", None) else None
@@ -117,6 +119,58 @@ class CustomProject(Project):
 
         if year_end:
             self.custom_year_end = year_end
+
+    def _sync_partner_from_customer_on_create(self):
+        """
+        If the selected Client has a default partner, seed Project.custom_team_members
+        with role=Partner on create, but never overwrite an explicitly provided partner.
+        """
+        customer = str(getattr(self, "customer", "") or "").strip()
+        if not customer:
+            return
+        if not getattr(self, "meta", None) or not self.meta.get_field("custom_team_members"):
+            return
+        if not frappe.db.has_column("Customer", "custom_partner"):
+            return
+
+        try:
+            members = list(getattr(self, "custom_team_members", None) or [])
+        except Exception:
+            members = []
+
+        try:
+            partner = str(frappe.db.get_value("Customer", customer, "custom_partner") or "").strip()
+        except Exception:
+            partner = ""
+        if not partner:
+            return
+
+        for row in members:
+            try:
+                role = str(getattr(row, "role", None) or (row.get("role") if isinstance(row, dict) else "") or "").strip()
+                user = str(getattr(row, "user", None) or (row.get("user") if isinstance(row, dict) else "") or "").strip()
+            except Exception:
+                role = ""
+                user = ""
+            if role == "Partner":
+                if user:
+                    return
+                try:
+                    row.user = partner
+                    if not getattr(row, "assigned_date", None):
+                        row.assigned_date = frappe.utils.today()
+                except Exception:
+                    pass
+                return
+
+        self.append(
+            "custom_team_members",
+            {
+                "user": partner,
+                "role": "Partner",
+                "assigned_date": frappe.utils.today(),
+            },
+        )
 
     def update_percent_complete(self):
         """

@@ -159,11 +159,42 @@ def _find_client_name_conflicts(name: str | None = None, exclude_name: str | Non
 	return items
 
 
+def _get_user_meta_map(usernames: list[str] | None = None) -> dict[str, dict[str, str]]:
+	names = [str(x or "").strip() for x in (usernames or []) if str(x or "").strip()]
+	if not names:
+		return {}
+	try:
+		rows = frappe.get_all(
+			"User",
+			filters=[["name", "in", names], ["enabled", "=", 1]],
+			fields=["name", "full_name", "user_image"],
+			limit_page_length=min(500, len(names)),
+			ignore_permissions=True,
+		)
+	except Exception:
+		rows = []
+	out: dict[str, dict[str, str]] = {}
+	for row in rows or []:
+		key = str(row.get("name") or "").strip()
+		if not key:
+			continue
+		out[key] = {
+			"label": str(row.get("full_name") or key).strip() or key,
+			"image": str(row.get("user_image") or "").strip(),
+		}
+	for name in names:
+		out.setdefault(name, {"label": name, "image": ""})
+	return out
+
+
 def _build_client_summary(customer: dict, primary_entity: dict | None = None) -> dict:
 	"""Return a minimal item shape compatible with ClientsTable rows."""
 	return {
 		"name": customer.get("name"),
 		"customer_name": customer.get("customer_name") or customer.get("name"),
+		"custom_partner": customer.get("custom_partner"),
+		"custom_partner_label": customer.get("custom_partner_label") or customer.get("custom_partner") or "",
+		"custom_partner_image": customer.get("custom_partner_image") or "",
 		"customer_group": customer.get("customer_group"),
 		"territory": customer.get("territory"),
 		"disabled": int(customer.get("disabled") or 0),
@@ -233,6 +264,8 @@ def get_clients(
 		"disabled",
 		"modified",
 	]
+	if frappe.db.has_column("Customer", "custom_partner"):
+		fields.append("custom_partner")
 	filters: dict[str, Any] = {}
 	if int(disabled_only or 0):
 		filters["disabled"] = 1
@@ -242,6 +275,25 @@ def get_clients(
 	if q:
 		like = f"%{q}%"
 		or_filters = [["name", "like", like], ["customer_name", "like", like]]
+		if frappe.db.has_column("Customer", "custom_partner"):
+			try:
+				user_rows = frappe.get_all(
+					"User",
+					filters={"enabled": 1},
+					or_filters=[
+						["name", "like", like],
+						["email", "like", like],
+						["full_name", "like", like],
+					],
+					fields=["name"],
+					limit_page_length=100,
+					ignore_permissions=True,
+				)
+			except Exception:
+				user_rows = []
+			partner_names = [str(r.get("name") or "").strip() for r in (user_rows or []) if str(r.get("name") or "").strip()]
+			if partner_names:
+				or_filters.append(["custom_partner", "in", partner_names])
 
 	customers = frappe.get_all(
 		"Customer",
@@ -351,6 +403,7 @@ def get_clients(
 				by_customer[p].append(e)
 
 	items = []
+	partner_meta = _get_user_meta_map([c.get("custom_partner") for c in (customers or []) if c.get("custom_partner")])
 	for c in (customers or []):
 		name = c.get("name")
 		es = by_customer.get(name) or []
@@ -360,6 +413,8 @@ def get_clients(
 		items.append(
 			{
 				**c,
+				"custom_partner_label": partner_meta.get(str(c.get("custom_partner") or "").strip(), {}).get("label", str(c.get("custom_partner") or "").strip()),
+				"custom_partner_image": partner_meta.get(str(c.get("custom_partner") or "").strip(), {}).get("image", ""),
 				"entities_count": len(es),
 				"project_count": int(project_counts.get(name) or 0),
 				"total_project_count": int(total_project_counts.get(name) or 0),
@@ -535,6 +590,7 @@ def create_client(payload: dict | None = None) -> dict:
 	customer_type = _normalize_customer_type_for_customer(raw_customer_type)
 	customer_group = str(data.get("customer_group") or "").strip() or (_pick_default("Customer Group", "All Customer Groups") or "")
 	territory = str(data.get("territory") or "").strip() or (_pick_default("Territory", "All Territories") or "")
+	custom_partner = str(data.get("custom_partner") or "").strip() or None
 
 	primary = data.get("primary_entity") or None
 	primary_entity_row = None
@@ -556,17 +612,18 @@ def create_client(payload: dict | None = None) -> dict:
 			}
 
 	try:
-		doc = frappe.get_doc(
-			{
-				"doctype": "Customer",
-				"customer_name": customer_name,
-				"customer_type": customer_type,
-				"customer_group": customer_group or None,
-				"territory": territory or None,
-				# Child table field may or may not exist; append only if present.
-				"custom_entities": [primary_entity_row] if primary_entity_row else [],
-			}
-		)
+		doc_payload = {
+			"doctype": "Customer",
+			"customer_name": customer_name,
+			"customer_type": customer_type,
+			"customer_group": customer_group or None,
+			"territory": territory or None,
+			# Child table field may or may not exist; append only if present.
+			"custom_entities": [primary_entity_row] if primary_entity_row else [],
+		}
+		if frappe.get_meta("Customer").get_field("custom_partner"):
+			doc_payload["custom_partner"] = custom_partner
+		doc = frappe.get_doc(doc_payload)
 		doc.insert()
 	except DuplicateEntryError:
 		frappe.throw("Customer already exists")
@@ -582,6 +639,10 @@ def create_client(payload: dict | None = None) -> dict:
 			"year_end": primary_entity_row.get("year_end"),
 			"is_primary": 1,
 		}
+	if customer.get("custom_partner"):
+		meta = _get_user_meta_map([customer.get("custom_partner")]).get(str(customer.get("custom_partner") or "").strip(), {})
+		customer["custom_partner_label"] = meta.get("label", str(customer.get("custom_partner") or "").strip())
+		customer["custom_partner_image"] = meta.get("image", "")
 	return {"item": _build_client_summary(customer, pe)}
 
 
@@ -626,11 +687,14 @@ def update_client(payload: dict | None = None) -> dict:
 
 	entity_type = data.get("entity_type", None)
 	year_end = data.get("year_end", None)
+	custom_partner = data.get("custom_partner", None)
 
 	if entity_type is not None:
 		entity_type = str(entity_type or "").strip()
 	if year_end is not None:
 		year_end = str(year_end or "").strip()
+	if custom_partner is not None:
+		custom_partner = str(custom_partner or "").strip()
 
 	if entity_type is not None or year_end is not None:
 		if not doc.meta.get_field("custom_entities"):
@@ -672,6 +736,9 @@ def update_client(payload: dict | None = None) -> dict:
 				},
 			)
 
+	if custom_partner is not None and doc.meta.get_field("custom_partner"):
+		doc.custom_partner = custom_partner or None
+
 	doc.save()
 
 	primary_out = None
@@ -690,6 +757,17 @@ def update_client(payload: dict | None = None) -> dict:
 		"item": {
 			"name": doc.get("name"),
 			"customer_name": doc.get("customer_name") or doc.get("name"),
+			"custom_partner": doc.get("custom_partner") if doc.meta.get_field("custom_partner") else None,
+			"custom_partner_label": (
+				_get_user_meta_map([doc.get("custom_partner")]).get(str(doc.get("custom_partner") or "").strip(), {}).get("label", str(doc.get("custom_partner") or "").strip())
+				if doc.meta.get_field("custom_partner") and doc.get("custom_partner")
+				else ""
+			),
+			"custom_partner_image": (
+				_get_user_meta_map([doc.get("custom_partner")]).get(str(doc.get("custom_partner") or "").strip(), {}).get("image", "")
+				if doc.meta.get_field("custom_partner") and doc.get("custom_partner")
+				else ""
+			),
 			"primary_entity": primary_out,
 		}
 	}
