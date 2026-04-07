@@ -6,19 +6,19 @@
 // Project Types（Sidebar 会从系统实时读取 Project Type 列表）
 // 这里仅保留“显示层”的 icon 映射与空态建议，不再写死具体有哪些业务类型
 export const PROJECT_TYPE_ICONS = {
-    'ITR': '📋',
-    'BAS': '📋',
-    'Payroll': '📋',
-    'Bookkeeping': '📋',
-    'R&D Grant': '📋',
-    'Grants': '📋',
-    'Smart Grants': '📋',
-    'SMSF': '📋',
-    'Audit': '📋',
-    'Financial Statements': '📋'
+    'ITR': 'clipboard',
+    'BAS': 'clipboard',
+    'Payroll': 'clipboard',
+    'Bookkeeping': 'clipboard',
+    'R&D Grant': 'clipboard',
+    'Grants': 'clipboard',
+    'Smart Grants': 'clipboard',
+    'SMSF': 'clipboard',
+    'Audit': 'clipboard',
+    'Financial Statements': 'clipboard'
 };
 
-export const DEFAULT_PROJECT_TYPE_ICON = '📋';
+export const DEFAULT_PROJECT_TYPE_ICON = 'clipboard';
 
 // Status 配置（DEPRECATED）
 // - Status 选项（可选值）应以“单一真相”为准：来自后端 DocType meta（Project.status options，包含 Property Setter）。

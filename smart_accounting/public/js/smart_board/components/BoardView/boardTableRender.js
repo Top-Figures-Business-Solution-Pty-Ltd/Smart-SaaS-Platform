@@ -1,4 +1,5 @@
 import { BoardRow } from './BoardRow.js';
+import { renderIcon } from '../../utils/iconUtils.js';
 
 function escapeHtml(input) {
   const text = typeof input === 'string' ? input : String(input ?? '');
@@ -29,8 +30,14 @@ export function renderHeaderCells(columns, sortState = {}) {
            </div>`
         : `<div class="cell-content">
             <span class="cell-label">${col.label}</span>
-            ${col.field === 'status' ? '<button type="button" class="sb-status-settings-btn" title="Status settings" aria-label="Status settings">⚙️</button>' : ''}
-            ${col.sortable !== false ? `<span class="sort-icon">${String(sortState?.field || '') === String(col.field || '') ? (String(sortState?.order || 'asc') === 'desc' ? '↓' : '↑') : ''}</span>` : ''}
+            ${col.field === 'status' ? `<button type="button" class="sb-status-settings-btn" title="Status settings" aria-label="Status settings">
+              <span aria-hidden="true">${renderIcon('es-line-settings', 'sm', 'sb-header-icon')}</span>
+            </button>` : ''}
+            ${col.sortable !== false ? `<span class="sort-icon" aria-hidden="true">${
+              String(sortState?.field || '') === String(col.field || '')
+                ? renderIcon(String(sortState?.order || 'asc') === 'desc' ? 'es-line-down' : 'es-line-up', 'sm', 'sb-header-icon')
+                : ''
+            }</span>` : ''}
           </div>
           <div class="resize-handle"></div>`
       }

@@ -3,6 +3,8 @@
  * 左侧导航栏组件
  */
 
+import { renderIcon } from '../../utils/iconUtils.js';
+
 export class Sidebar {
     constructor(container, options = {}) {
         this.container = container;
@@ -30,7 +32,7 @@ export class Sidebar {
         if (canSee('dashboard')) {
             productItems.push(`
                 <a href="#" class="nav-item" data-view="dashboard">
-                    <span class="nav-icon">🏠</span>
+                    ${this._iconMarkup('es-line-home')}
                     <span class="nav-label">Home</span>
                 </a>
             `);
@@ -38,7 +40,7 @@ export class Sidebar {
         if (canSee('report')) {
             productItems.push(`
                 <a href="#" class="nav-item" data-view="report">
-                    <span class="nav-icon">📊</span>
+                    ${this._iconMarkup('es-line-reports')}
                     <span class="nav-label">Report</span>
                 </a>
             `);
@@ -46,7 +48,7 @@ export class Sidebar {
         if (canSee('clients')) {
             otherItems.push(`
                 <a href="#" class="nav-item" data-view="clients">
-                    <span class="nav-icon">👥</span>
+                    ${this._iconMarkup('users')}
                     <span class="nav-label">Clients</span>
                 </a>
             `);
@@ -54,7 +56,7 @@ export class Sidebar {
         if (canSee('users')) {
             otherItems.push(`
                 <a href="#" class="nav-item" data-view="users">
-                    <span class="nav-icon">🧑</span>
+                    ${this._iconMarkup('es-solid-user')}
                     <span class="nav-label">Users</span>
                 </a>
             `);
@@ -62,7 +64,7 @@ export class Sidebar {
         if (canSee('archived-clients')) {
             otherItems.push(`
                 <a href="#" class="nav-item" data-view="archived-clients">
-                    <span class="nav-icon">🗃️</span>
+                    ${this._iconMarkup('es-line-folder')}
                     <span class="nav-label">Archived Clients</span>
                 </a>
             `);
@@ -70,7 +72,7 @@ export class Sidebar {
         if (canSee('automation-logs')) {
             otherItems.push(`
                 <a href="#" class="nav-item" data-view="automation-logs">
-                    <span class="nav-icon">🤖</span>
+                    ${this._iconMarkup('es-line-zap')}
                     <span class="nav-label">Automation Logs</span>
                 </a>
             `);
@@ -78,7 +80,7 @@ export class Sidebar {
         if (canSee('settings')) {
             otherItems.push(`
                 <a href="#" class="nav-item" data-view="settings">
-                    <span class="nav-icon">⚙️</span>
+                    ${this._iconMarkup('es-line-settings')}
                     <span class="nav-label">Settings</span>
                 </a>
             `);
@@ -123,7 +125,7 @@ export class Sidebar {
                 <div class="nav-section">
                     <div class="nav-section-title sb-boards-title">
                         <span>Boards</span>
-                        ${this.showBoardSettings ? '<button type="button" class="sb-boards-settings" id="sbBoardsSettings" title="Board settings">⚙️</button>' : ''}
+                        ${this.showBoardSettings ? this._iconButtonMarkup('es-line-settings', 'sb-boards-settings', 'id="sbBoardsSettings" title="Board settings" aria-label="Board settings"') : ''}
                     </div>
                     <div class="nav-empty">
                         <div class="text-muted" style="padding: 8px 20px; font-size: 13px;">
@@ -131,7 +133,7 @@ export class Sidebar {
                         </div>
                         ${this.showCreateProjectType ? `
                             <a href="#" class="nav-item" data-view="__create_project_type__">
-                                <span class="nav-icon">➕</span>
+                                ${this._iconMarkup('plus')}
                                 <span class="nav-label">Create Project Type</span>
                             </a>
                         ` : ''}
@@ -143,10 +145,10 @@ export class Sidebar {
         const dynamicRows = this.projectTypes.map(type => `
             <div class="sb-board-item ${this._openBoardMenuFor === type.value ? 'is-open' : ''}" data-board-item="${type.value}">
                 <a href="#" class="nav-item" data-view="${type.value}">
-                    <span class="nav-icon">${type.icon}</span>
+                    ${this._iconMarkup(type.icon || 'clipboard')}
                     <span class="nav-label">${type.label}</span>
                 </a>
-                <button type="button" class="sb-board-item__more" data-role="board-menu-trigger" data-view="${type.value}" aria-label="Board menu">⋯</button>
+                ${this._iconButtonMarkup('es-line-dot-horizontal', 'sb-board-item__more', `data-role="board-menu-trigger" data-view="${type.value}" aria-label="Board menu"`)}
                 <div class="sb-board-item__menu" data-role="board-menu" data-view="${type.value}">
                     <button type="button" data-role="board-menu-item" data-action="export_csv" data-view="${type.value}">
                         Export to Excel (CSV)
@@ -158,7 +160,7 @@ export class Sidebar {
         const archivedRow = this.showArchivedProjects && this._isViewVisible('archived-projects') ? `
             <div class="sb-board-item sb-board-item--archived" data-board-item="archived-projects">
                 <a href="#" class="nav-item nav-item--archived" data-view="archived-projects">
-                    <span class="nav-icon">🗄️</span>
+                    ${this._iconMarkup('es-line-folder-alt')}
                     <span class="nav-label">Archived Projects</span>
                 </a>
             </div>
@@ -168,10 +170,26 @@ export class Sidebar {
             <div class="nav-section">
                 <div class="nav-section-title sb-boards-title">
                     <span>Boards</span>
-                    ${this.showBoardSettings ? '<button type="button" class="sb-boards-settings" id="sbBoardsSettings" title="Board settings">⚙️</button>' : ''}
+                    ${this.showBoardSettings ? this._iconButtonMarkup('es-line-settings', 'sb-boards-settings', 'id="sbBoardsSettings" title="Board settings" aria-label="Board settings"') : ''}
                 </div>
                 ${dynamicRows}${archivedRow}
             </div>
+        `;
+    }
+
+    _iconMarkup(iconName) {
+        return `
+            <span class="nav-icon" aria-hidden="true">
+                ${renderIcon(iconName, 'md', 'nav-icon-svg')}
+            </span>
+        `;
+    }
+
+    _iconButtonMarkup(iconName, buttonClass, attrs = '') {
+        return `
+            <button type="button" class="${buttonClass}" ${attrs}>
+                <span class="icon-button__icon" aria-hidden="true">${renderIcon(iconName, 'sm', 'icon-button-svg')}</span>
+            </button>
         `;
     }
 

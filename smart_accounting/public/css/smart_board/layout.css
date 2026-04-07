@@ -57,6 +57,9 @@
     padding: 2px 6px;
     border-radius: 8px;
     line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .sb-boards-settings:hover {
@@ -111,6 +114,9 @@
     cursor: pointer;
     opacity: 0;
     transition: opacity 0.12s ease, background 0.12s ease, color 0.12s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .sb-board-item:hover .sb-board-item__more,
@@ -167,10 +173,31 @@
 }
 
 .nav-icon {
-    font-size: 18px;
     margin-right: 12px;
     width: 24px;
-    text-align: center;
+    height: 24px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 24px;
+}
+
+.nav-icon-svg,
+.icon-button-svg {
+    width: 16px;
+    height: 16px;
+    display: block;
+}
+
+.nav-icon-svg use,
+.icon-button-svg use {
+    stroke-width: 1.9;
+}
+
+.icon-button__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .nav-label {
