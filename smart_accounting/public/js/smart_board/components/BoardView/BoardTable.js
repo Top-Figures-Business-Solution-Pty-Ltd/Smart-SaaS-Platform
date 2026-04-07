@@ -106,7 +106,7 @@ export class BoardTable {
         this._syncingFromBottom = false;
         this._syncingFromBody = false;
         this._lastLoadMoreAt = 0;
-        this._rowHeight = 44; // fallback, will be refined after first render
+        this._rowHeight = 48; // fallback, will be refined after first render
         this._virtualThreshold = options.virtualThreshold || 200;
         this._overscan = options.overscan || 6;
         
