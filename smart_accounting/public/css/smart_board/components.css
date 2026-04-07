@@ -7,27 +7,28 @@
    Buttons
    ============================================ */
 .btn {
-    padding: 8px 14px;
+    padding: 10px 16px;
     border: 1px solid var(--smart-board-border);
-    border-radius: 12px;
+    border-radius: 6px;
     font-size: 14px;
-    font-weight: 500;
+    font-weight: 600;
+    line-height: 1.2;
     cursor: pointer;
-    transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+    transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, color 0.15s ease;
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 6px;
     background: var(--smart-board-surface);
     color: var(--smart-board-text);
+    min-height: 38px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 }
 
 .btn:hover {
     background: rgba(15, 23, 42, 0.04);
     border-color: var(--smart-board-border-strong);
-}
-
-.btn:active {
-    transform: translateY(0.5px);
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
 }
 
 .btn:focus-visible {
@@ -39,16 +40,60 @@
     background: var(--smart-board-primary);
     color: #ffffff;
     border-color: var(--smart-board-primary);
+    box-shadow: 0 1px 2px rgba(37, 99, 235, 0.18);
 }
 
 .btn-primary:hover {
     background: var(--smart-board-primary-600);
     border-color: var(--smart-board-primary-600);
+    box-shadow: 0 2px 6px rgba(37, 99, 235, 0.18);
 }
 
 .btn-default {
     background: #ffffff;
     border-color: var(--smart-board-border);
+}
+
+.btn-default:hover {
+    background: #f8fafc;
+}
+
+.btn-light {
+    background: #f8fafc;
+    border-color: var(--smart-board-border);
+    color: var(--smart-board-text);
+    box-shadow: none;
+}
+
+.btn-light:hover {
+    background: #f1f5f9;
+    border-color: var(--smart-board-border-strong);
+}
+
+.btn-danger {
+    background: #ffffff;
+    border-color: rgba(220, 38, 38, 0.22);
+    color: #b91c1c;
+    box-shadow: none;
+}
+
+.btn-danger:hover {
+    background: rgba(220, 38, 38, 0.06);
+    border-color: rgba(220, 38, 38, 0.34);
+    color: #991b1b;
+}
+
+.btn-sm {
+    min-height: 32px;
+    padding: 8px 12px;
+    font-size: 13px;
+}
+
+.btn-xs {
+    min-height: 28px;
+    padding: 6px 10px;
+    font-size: 12px;
+    border-radius: 5px;
 }
 
 .btn .icon {
@@ -60,13 +105,15 @@
    Form Controls
    ============================================ */
 .form-control {
-    padding: 8px 12px;
+    padding: 10px 12px;
     border: 1px solid var(--smart-board-border);
-    border-radius: 12px;
+    border-radius: 6px;
     font-size: 14px;
+    line-height: 1.4;
     color: var(--smart-board-text);
     background: var(--smart-board-surface);
-    transition: all 0.2s;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+    min-height: 38px;
 }
 
 .form-control:focus {
@@ -75,10 +122,22 @@
     box-shadow: var(--smart-board-focus);
 }
 
+.form-control::placeholder {
+    color: rgba(15, 23, 42, 0.42);
+}
+
 .form-control:disabled {
-    background: #f8f9fa;
+    background: #f8fafc;
     color: var(--smart-board-text-muted);
     cursor: not-allowed;
+}
+
+textarea.form-control {
+    min-height: 96px;
+}
+
+select.form-control {
+    padding-right: 32px;
 }
 
 /* ============================================

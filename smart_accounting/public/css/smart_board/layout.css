@@ -298,16 +298,25 @@
 
 .search-input {
     width: 100%;
-    padding: 8px 12px;
+    padding: 10px 12px;
     border: 1px solid var(--smart-board-border);
-    border-radius: 12px;
+    border-radius: 6px;
     font-size: 14px;
+    line-height: 1.4;
+    min-height: 38px;
+    background: var(--smart-board-surface);
+    color: var(--smart-board-text);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
 }
 
 .search-input:focus {
     outline: none;
     border-color: var(--smart-board-primary);
     box-shadow: var(--smart-board-focus);
+}
+
+.search-input::placeholder {
+    color: rgba(15, 23, 42, 0.42);
 }
 
 /* Filter badge */
