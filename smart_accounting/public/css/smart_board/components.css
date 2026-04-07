@@ -158,7 +158,7 @@ select.form-control {
 /* Settings */
 .sb-settings {
     display: flex;
-    gap: 14px;
+    gap: var(--smart-board-space-4);
     align-items: flex-start;
 }
 
@@ -168,7 +168,7 @@ select.form-control {
     padding: 12px;
     background: #fff;
     border: 1px solid var(--smart-board-border);
-    border-radius: 12px;
+    border-radius: var(--smart-board-radius-md);
 }
 
 .sb-settings__tab {
@@ -177,7 +177,7 @@ select.form-control {
     background: transparent;
     text-align: left;
     padding: 10px 10px;
-    border-radius: 10px;
+    border-radius: var(--smart-board-radius-sm);
     font-weight: 600;
     color: var(--smart-board-text);
 }
@@ -207,8 +207,8 @@ select.form-control {
 .sb-cardlike {
     background: #fff;
     border: 1px solid var(--smart-board-border);
-    border-radius: 12px;
-    padding: 16px;
+    border-radius: var(--smart-board-radius-md);
+    padding: var(--smart-board-space-4);
 }
 
 .sb-cardlike__title {
@@ -293,7 +293,7 @@ select.form-control {
     right: 16px;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: var(--smart-board-space-2);
     /* Ensure toast stays above modals/popovers */
     z-index: 40000;
     pointer-events: none; /* don't block the UI; toasts enable pointer events individually */
@@ -305,7 +305,7 @@ select.form-control {
     background: #ffffff;
     border: 1px solid var(--smart-board-border);
     border-left-width: 4px;
-    border-radius: 14px;
+    border-radius: var(--smart-board-radius-lg);
     box-shadow: var(--smart-board-shadow-md);
     overflow: hidden;
     transform: translateY(-4px);
@@ -320,8 +320,8 @@ select.form-control {
 .sb-toast__body {
     display: flex;
     align-items: flex-start;
-    gap: 10px;
-    padding: 12px 12px;
+    gap: var(--smart-board-space-2);
+    padding: var(--smart-board-space-3);
 }
 
 .sb-toast__message {
@@ -338,7 +338,7 @@ select.form-control {
     background: transparent;
     color: var(--smart-board-text-muted);
     cursor: pointer;
-    border-radius: 10px;
+    border-radius: var(--smart-board-radius-md);
     width: 28px;
     height: 28px;
     line-height: 26px;
@@ -380,22 +380,22 @@ select.form-control {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
+    gap: var(--smart-board-space-3);
     flex-wrap: wrap;
-    margin-bottom: 12px;
+    margin-bottom: var(--smart-board-space-3);
 }
 
 .sb-activity__filters,
 .sb-activity__actions {
     display: flex;
-    gap: 10px;
+    gap: var(--smart-board-space-2);
     align-items: center;
     flex-wrap: wrap;
 }
 
 .sb-activity__table-wrap {
     border: 1px solid var(--smart-board-border);
-    border-radius: 12px;
+    border-radius: var(--smart-board-radius-md);
     background: #fff;
 }
 
@@ -445,26 +445,26 @@ select.form-control {
 }
 
 .sb-page__hint {
-    margin-top: 18px;
-    padding: 12px 14px;
+    margin-top: var(--smart-board-space-4);
+    padding: var(--smart-board-space-3) var(--smart-board-space-4);
     border: 1px solid var(--smart-board-border);
     background: #fff;
-    border-radius: 10px;
+    border-radius: var(--smart-board-radius-md);
     color: var(--smart-board-text-muted);
 }
 
 .sb-cards {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 12px;
+    gap: var(--smart-board-space-3);
 }
 
 .sb-card {
     background: var(--smart-board-surface);
     border: 1px solid var(--smart-board-border);
-    border-radius: 12px;
-    padding: 12px 14px;
-    box-shadow: var(--smart-board-shadow-sm);
+    border-radius: var(--smart-board-radius-md);
+    padding: var(--smart-board-space-3) var(--smart-board-space-4);
+    box-shadow: none;
 }
 
 button.sb-card {
@@ -496,13 +496,13 @@ button.sb-card:hover {
     margin-top: 14px;
     background: var(--smart-board-surface);
     border: 1px solid var(--smart-board-border);
-    border-radius: 12px;
+    border-radius: var(--smart-board-radius-md);
     overflow: hidden;
-    box-shadow: var(--smart-board-shadow-sm);
+    box-shadow: none;
 }
 
 .sb-dash__list-title {
-    padding: 12px 14px;
+    padding: var(--smart-board-space-3) var(--smart-board-space-4);
     font-weight: 700;
     font-size: 14px;
     border-bottom: 1px solid var(--smart-board-border);
@@ -700,7 +700,7 @@ button.sb-card:hover {
     max-width: 96vw;
     max-height: 86vh;
     background: var(--smart-board-surface);
-    border-radius: 16px;
+    border-radius: var(--smart-board-radius-lg);
     border: 1px solid var(--smart-board-border);
     box-shadow: var(--smart-board-shadow-lg);
     display: flex;
@@ -716,7 +716,7 @@ button.sb-card:hover {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 12px 14px;
+    padding: var(--smart-board-space-3) var(--smart-board-space-4);
     border-bottom: 1px solid var(--smart-board-border);
 }
 
@@ -729,7 +729,7 @@ button.sb-card:hover {
 .sb-modal__close {
     width: 32px;
     height: 32px;
-    border-radius: 10px;
+    border-radius: var(--smart-board-radius-md);
     border: 1px solid var(--smart-board-border);
     background: var(--smart-board-surface);
     cursor: pointer;
@@ -742,7 +742,7 @@ button.sb-card:hover {
 }
 
 .sb-modal__body {
-    padding: 12px 14px;
+    padding: var(--smart-board-space-3) var(--smart-board-space-4);
     overflow: auto;
 }
 
@@ -753,11 +753,11 @@ button.sb-card:hover {
 }
 
 .sb-modal__footer {
-    padding: 12px 14px;
+    padding: var(--smart-board-space-3) var(--smart-board-space-4);
     border-top: 1px solid var(--smart-board-border);
     display: flex;
     justify-content: flex-end;
-    gap: 10px;
+    gap: var(--smart-board-space-2);
 }
 
 .sb-colmgr {
@@ -1001,14 +1001,89 @@ button.sb-card:hover {
 /* ============================================
    Updates Modal
    ============================================ */
-.sb-updates__list {
-    margin: 10px 0;
-    padding: 10px;
-    border: 1px solid var(--smart-board-border);
-    border-radius: 10px;
-    min-height: 120px;
-    max-height: 420px;
+.sb-modal--updates {
+    width: min(860px, 94vw);
+    height: min(78vh, 760px);
+}
+
+.sb-modal--updates .sb-modal__body {
+    padding: 0;
+    overflow: hidden;
+    display: flex;
+    flex: 1;
+    min-height: 0;
+}
+
+.sb-modal--updates .sb-modal__body > * {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
+}
+
+.sb-updates {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    width: 100%;
+    height: 100%;
+    flex: 1 1 auto;
+    min-height: 0;
+    background: var(--smart-board-surface);
+}
+
+.sb-updates__header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--smart-board-space-3);
+    padding: var(--smart-board-space-3) var(--smart-board-space-4);
+    border-bottom: 1px solid var(--smart-board-border);
+    background: var(--smart-board-surface);
+    flex-shrink: 0;
+}
+
+.sb-updates__header-copy {
+    min-width: 0;
+}
+
+.sb-updates__hint {
+    font-size: 12px;
+    font-weight: 700;
+    margin-bottom: var(--smart-board-space-1);
+}
+
+.sb-updates__summary {
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+.sb-updates__pagination {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--smart-board-space-2);
+    flex-shrink: 0;
+}
+
+.sb-updates__pageinfo {
+    min-width: 52px;
+    text-align: center;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.sb-updates__viewport {
+    min-height: 0;
     overflow: auto;
+    padding: 0 var(--smart-board-space-4) var(--smart-board-space-3);
+}
+
+.sb-updates__list {
+    margin: var(--smart-board-space-2) 0 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    min-height: 0;
+    max-height: none;
+    overflow: visible;
 }
 
 .sb-updates__day {
@@ -1019,7 +1094,7 @@ button.sb-card:hover {
 }
 
 .sb-updates__item {
-    padding: 10px 0;
+    padding: var(--smart-board-space-2) 0;
     border-bottom: 1px solid rgba(0, 0, 0, 0.06);
 }
 
@@ -1030,7 +1105,7 @@ button.sb-card:hover {
 .sb-updates__meta {
     display: flex;
     justify-content: space-between;
-    gap: 10px;
+    gap: var(--smart-board-space-2);
 }
 
 .sb-updates__author {
@@ -1056,24 +1131,32 @@ button.sb-card:hover {
     display: flex;
     justify-content: flex-end;
     gap: 8px;
-    margin-top: 8px;
+    margin-top: var(--smart-board-space-2);
 }
 
 .sb-updates__edit-textarea {
     margin-top: 8px;
 }
 
+.sb-updates__composer {
+    flex-shrink: 0;
+    border-top: 1px solid var(--smart-board-border);
+    background: var(--smart-board-surface);
+    padding: var(--smart-board-space-3) var(--smart-board-space-4);
+    margin-top: auto;
+}
+
+.sb-updates__textarea {
+    min-height: 112px;
+    max-height: 220px;
+    resize: vertical;
+}
+
 .sb-updates__composer-actions {
     display: flex;
     justify-content: flex-end;
-    gap: 10px;
-    margin-top: 10px;
-}
-
-.sb-updates__more-wrap {
-    display: flex;
-    justify-content: center;
-    margin-bottom: 6px;
+    gap: var(--smart-board-space-2);
+    margin-top: var(--smart-board-space-2);
 }
 
 /* ============================================

@@ -349,18 +349,18 @@
     z-index: 10000;
     background: #fff;
     border: 1px solid var(--smart-board-border);
-    border-radius: 14px;
+    border-radius: var(--smart-board-radius-lg);
     box-shadow: var(--smart-board-shadow-lg);
-    padding: 8px;
+    padding: var(--smart-board-space-2);
     display: flex;
-    gap: 6px;
+    gap: var(--smart-board-space-1);
 }
 
 .sb-ms-menu button {
     border: 1px solid var(--smart-board-border);
     background: #fff;
-    border-radius: 8px;
-    padding: 6px 10px;
+    border-radius: var(--smart-board-radius-sm);
+    padding: var(--smart-board-space-2) var(--smart-board-space-3);
     font-size: 12px;
     cursor: pointer;
     white-space: nowrap;
@@ -416,11 +416,11 @@
    Task subtable (expand under Project row)
    ============================================ */
 .sb-task-wrap {
-    padding: 10px 12px 14px 12px;
+    padding: var(--smart-board-space-3) var(--smart-board-space-3) var(--smart-board-space-4) var(--smart-board-space-3);
     background: transparent;
     border-top: 1px solid rgba(15, 23, 42, 0.06);
     /* Indent under the first data column (skip checkbox col) */
-    padding-left: calc(12px + 52px);
+    padding-left: calc(var(--smart-board-space-3) + 52px);
     position: relative;
 }
 
@@ -431,7 +431,7 @@
     left: 0;
     top: 0;
     bottom: 0;
-    width: calc(12px + 52px);
+    width: calc(var(--smart-board-space-3) + 52px);
     background: var(--smart-board-surface);
     border-right: 1px solid rgba(15, 23, 42, 0.06);
     z-index: 3;
@@ -452,8 +452,8 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 10px;
-    margin-bottom: 8px;
+    gap: var(--smart-board-space-2);
+    margin-bottom: var(--smart-board-space-2);
 }
 
 .sb-task-actions {
@@ -467,7 +467,7 @@
     border: 0;
     background: transparent;
     padding: 2px 6px;
-    border-radius: 8px;
+    border-radius: var(--smart-board-radius-sm);
     cursor: pointer;
     color: var(--smart-board-text-muted);
     opacity: 0;
@@ -492,7 +492,7 @@
 .sb-task-grid {
     position: relative;
     background: var(--smart-board-surface);
-    border-radius: 14px;
+    border-radius: var(--smart-board-radius-lg);
     /* FIXED HEIGHT + inner scroll so expanded rows don't blow up page height.
        Sticky columns still work (sticky works inside overflow:auto; overflow:hidden was the real blocker). */
     overflow-x: hidden;
@@ -506,7 +506,7 @@
     position: absolute;
     inset: 0;
     border: 1px solid var(--smart-board-border);
-    border-radius: 14px;
+    border-radius: var(--smart-board-radius-lg);
     pointer-events: none;
     z-index: 1;
 }
@@ -649,7 +649,7 @@
     color: var(--smart-board-text-muted);
     cursor: pointer;
     padding: 2px 6px;
-    border-radius: 8px;
+    border-radius: var(--smart-board-radius-sm);
     line-height: 1;
     display: inline-flex;
     align-items: center;
@@ -728,7 +728,7 @@
     position: fixed;
     bottom: 0;
     z-index: 120;
-    border-radius: 8px 8px 0 0;
+    border-radius: var(--smart-board-radius-md) var(--smart-board-radius-md) 0 0;
 }
 
 .sb-bottom-hscroll__inner {
@@ -962,8 +962,8 @@
     padding: 8px;
     background: #fff;
     border: 1px solid var(--smart-board-border);
-    border-radius: 10px;
-    box-shadow: 0 12px 30px rgba(0,0,0,0.12);
+    border-radius: var(--smart-board-radius-md);
+    box-shadow: var(--smart-board-shadow-lg);
 }
 
 /* Portal variant: positioned by JS; should overlay table without being clipped */

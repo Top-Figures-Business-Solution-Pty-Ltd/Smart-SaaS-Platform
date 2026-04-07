@@ -20,11 +20,15 @@ export class UpdatesModal {
     this._posting = false;
     this._saving = false;
     this._deleting = false;
-    this._limit = 20;
-    this._cursor = 0;
+    this._pageSize = 10;
+    this._page = 1;
     this._totalCount = 0;
     this._listEl = null;
-    this._loadMoreBtn = null;
+    this._summaryEl = null;
+    this._pageInfoEl = null;
+    this._prevBtn = null;
+    this._nextBtn = null;
+    this._viewportEl = null;
     this._mentionPicker = null;
     this._mentions = []; // [{name, full_name}]
     this._editingName = '';
@@ -37,12 +41,21 @@ export class UpdatesModal {
     const content = document.createElement('div');
     content.innerHTML = `
       <div class="sb-updates">
-        <div class="sb-updates__hint text-muted">Updates</div>
-        <div class="sb-updates__list" id="sbUpdatesList">
-          <div class="text-muted">Loading…</div>
+        <div class="sb-updates__header">
+          <div class="sb-updates__header-copy">
+            <div class="sb-updates__hint text-muted">Updates</div>
+            <div class="sb-updates__summary text-muted" id="sbUpdatesSummary">Loading updates…</div>
+          </div>
+          <div class="sb-updates__pagination" id="sbUpdatesPagination">
+            <button class="btn btn-default btn-xs" type="button" data-action="prev-page">Previous</button>
+            <span class="sb-updates__pageinfo text-muted" id="sbUpdatesPageInfo">1 / 1</span>
+            <button class="btn btn-default btn-xs" type="button" data-action="next-page">Next</button>
+          </div>
         </div>
-        <div class="sb-updates__more-wrap">
-          <button class="btn btn-default sb-updates__more" type="button" data-action="load-more" style="display:none;">Load more</button>
+        <div class="sb-updates__viewport" id="sbUpdatesViewport">
+          <div class="sb-updates__list" id="sbUpdatesList">
+            <div class="text-muted">Loading…</div>
+          </div>
         </div>
         <div class="sb-updates__composer">
           <textarea class="form-control sb-updates__textarea" rows="4" placeholder="Write a new update..."></textarea>
@@ -59,6 +72,7 @@ export class UpdatesModal {
       title: `Updates · ${escapeHtml(title)}`,
       contentEl: content,
       footerEl: footer,
+      modalClass: 'sb-modal--updates',
       onClose: () => {
         this.onClose();
       }
@@ -68,9 +82,17 @@ export class UpdatesModal {
 
     const ta = content.querySelector('.sb-updates__textarea');
     const listEl = content.querySelector('#sbUpdatesList');
-    const loadMoreBtn = content.querySelector('button[data-action="load-more"]');
+    const viewportEl = content.querySelector('#sbUpdatesViewport');
+    const summaryEl = content.querySelector('#sbUpdatesSummary');
+    const pageInfoEl = content.querySelector('#sbUpdatesPageInfo');
+    const prevBtn = content.querySelector('button[data-action="prev-page"]');
+    const nextBtn = content.querySelector('button[data-action="next-page"]');
     this._listEl = listEl;
-    this._loadMoreBtn = loadMoreBtn;
+    this._viewportEl = viewportEl;
+    this._summaryEl = summaryEl;
+    this._pageInfoEl = pageInfoEl;
+    this._prevBtn = prevBtn;
+    this._nextBtn = nextBtn;
     setTimeout(() => { try { ta?.focus?.(); } catch (e) {} }, 0);
 
     // @mention picker (MVP)
@@ -97,8 +119,10 @@ export class UpdatesModal {
         this.close();
       } else if (action === 'post') {
         this._postUpdate(ta);
-      } else if (action === 'load-more') {
-        this._loadMore();
+      } else if (action === 'prev-page') {
+        this._loadPage(this._page - 1);
+      } else if (action === 'next-page') {
+        this._loadPage(this._page + 1);
       } else if (action === 'edit') {
         this._startEdit(btn.dataset.name);
       } else if (action === 'cancel-edit') {
@@ -113,62 +137,60 @@ export class UpdatesModal {
   }
 
   async _loadInitial() {
+    return this._loadPage(1);
+  }
+
+  async _loadPage(page) {
     if (this._loading) return;
     const projectName = this.project?.name;
     if (!projectName) return;
-    this._cursor = 0;
-    this._totalCount = 0;
+    const targetPage = Math.max(1, Number(page) || 1);
     this._loading = true;
+    this._renderLoading();
+    this._updatePaginationState();
     try {
-      const msg = await UpdatesService.listProjectUpdates(projectName, { limitStart: 0, limit: this._limit });
+      const limitStart = (targetPage - 1) * this._pageSize;
+      const msg = await UpdatesService.listProjectUpdates(projectName, { limitStart, limit: this._pageSize });
       const items = Array.isArray(msg?.items) ? msg.items : [];
+      const totalFromServer = Number(msg?.meta?.total_count || 0);
       this._items = items;
-      this._cursor = items.length;
-      this._totalCount = Number(msg?.meta?.total_count || items.length || 0);
+      this._page = targetPage;
+      this._totalCount = totalFromServer > 0 ? totalFromServer : Math.max(limitStart + items.length, items.length);
+      const totalPages = this._totalPages();
+      if (this._page > totalPages) {
+        this._page = totalPages;
+        this._loading = false;
+        return this._loadPage(this._page);
+      }
       this._renderList();
-      this._updateLoadMoreState();
+      this._updatePaginationState();
+      this._scrollListToTop();
     } catch (e) {
       console.error(e);
       this._renderError(e?.message || String(e));
     } finally {
       this._loading = false;
-    }
-  }
-
-  async _loadMore() {
-    if (this._loading) return;
-    const projectName = this.project?.name;
-    if (!projectName) return;
-    if (!this._hasMore()) return;
-    this._loading = true;
-    this._updateLoadMoreState();
-    try {
-      const msg = await UpdatesService.listProjectUpdates(projectName, { limitStart: this._cursor, limit: this._limit });
-      const next = Array.isArray(msg?.items) ? msg.items : [];
-      this._items = (this._items || []).concat(next);
-      this._cursor += next.length;
-      const total = Number(msg?.meta?.total_count || 0);
-      if (total > 0) this._totalCount = total;
-      this._renderList();
-      this._updateLoadMoreState();
-    } catch (e) {
-      console.error(e);
-      notify(e?.message || 'Failed to load more', 'red');
-    } finally {
-      this._loading = false;
-      this._updateLoadMoreState();
+      this._updatePaginationState();
     }
   }
 
   _renderError(msg) {
     if (!this._listEl) return;
+    this._updateSummaryText(msg || 'Failed to load updates');
     this._listEl.innerHTML = `<div class="text-danger">${escapeHtml(msg || 'Failed to load updates')}</div>`;
+  }
+
+  _renderLoading() {
+    if (!this._listEl) return;
+    this._updateSummaryText('Loading updates…');
+    this._listEl.innerHTML = `<div class="text-muted">Loading…</div>`;
   }
 
   _renderList() {
     if (!this._listEl) return;
     const items = Array.isArray(this._items) ? this._items : [];
     if (!items.length) {
+      this._updateSummaryText('No updates yet.');
       this._listEl.innerHTML = `<div class="text-muted">No updates yet.</div>`;
       return;
     }
@@ -234,6 +256,7 @@ export class UpdatesModal {
         </div>
       `);
     });
+    this._updateSummaryText(this._summaryText());
     this._listEl.innerHTML = `<div class="sb-updates__items">${rows.join('')}</div>`;
   }
 
@@ -257,14 +280,9 @@ export class UpdatesModal {
     try {
       const item = await UpdatesService.addProjectUpdate(projectName, html, { mentions });
       if (item) {
-        // Prepend (we render newest-first)
-        this._items = [item].concat(this._items || []);
-        this._cursor += 1;
-        this._totalCount += 1;
-        this._renderList();
-        this._updateLoadMoreState();
         notify('Posted.', 'green');
         try { this.onPosted?.(item); } catch (e) {}
+        await this._loadPage(1);
       }
       if (ta) ta.value = '';
       this._mentions = [];
@@ -354,12 +372,10 @@ export class UpdatesModal {
     try {
       const deleted = await UpdatesService.deleteProjectUpdate(n);
       if (deleted) {
-        this._items = (this._items || []).filter((x) => x?.name !== n);
-        this._cursor = Math.max(0, this._cursor - 1);
-        this._totalCount = Math.max(0, this._totalCount - 1);
         this._editingName = this._editingName === n ? '' : this._editingName;
-        this._renderList();
-        this._updateLoadMoreState();
+        const currentCount = Array.isArray(this._items) ? this._items.length : 0;
+        const shouldStepBack = currentCount <= 1 && this._page > 1;
+        await this._loadPage(shouldStepBack ? this._page - 1 : this._page);
         notify('Deleted.', 'green');
       }
     } catch (e) {
@@ -370,18 +386,38 @@ export class UpdatesModal {
     }
   }
 
-  _hasMore() {
-    const total = Number(this._totalCount || 0);
-    const current = Number((this._items || []).length || 0);
-    return total > current;
+  _totalPages() {
+    const total = Math.max(0, Number(this._totalCount || 0));
+    return Math.max(1, Math.ceil(total / this._pageSize));
   }
 
-  _updateLoadMoreState() {
-    const btn = this._loadMoreBtn;
-    if (!btn) return;
-    const show = this._hasMore();
-    btn.style.display = show ? '' : 'none';
-    btn.disabled = !!this._loading;
+  _summaryText() {
+    const total = Math.max(0, Number(this._totalCount || 0));
+    if (!total) return 'No updates yet.';
+    const start = ((this._page - 1) * this._pageSize) + 1;
+    const end = Math.min(total, start + (this._items?.length || 0) - 1);
+    return `Showing ${start}-${end} of ${total} updates`;
+  }
+
+  _updateSummaryText(text) {
+    if (this._summaryEl) this._summaryEl.textContent = String(text || '');
+  }
+
+  _updatePaginationState() {
+    const totalPages = this._totalPages();
+    const page = Math.min(Math.max(1, Number(this._page || 1)), totalPages);
+    if (this._pageInfoEl) this._pageInfoEl.textContent = `${page} / ${totalPages}`;
+    if (this._prevBtn) this._prevBtn.disabled = !!this._loading || page <= 1;
+    if (this._nextBtn) this._nextBtn.disabled = !!this._loading || page >= totalPages || Number(this._totalCount || 0) === 0;
+    const wrap = this._pageInfoEl?.closest?.('.sb-updates__pagination');
+    if (wrap) wrap.hidden = Number(this._totalCount || 0) <= this._pageSize;
+    if (!this._loading && Number(this._totalCount || 0) > 0) this._updateSummaryText(this._summaryText());
+  }
+
+  _scrollListToTop() {
+    try { this._viewportEl?.scrollTo?.({ top: 0, behavior: 'auto' }); } catch (e) {
+      try { if (this._viewportEl) this._viewportEl.scrollTop = 0; } catch (e2) {}
+    }
   }
 
   _dateFromTs(ts) {
@@ -419,13 +455,17 @@ export class UpdatesModal {
     this._modal = null;
     this._items = [];
     this._listEl = null;
+    this._viewportEl = null;
     this._loading = false;
     this._posting = false;
     this._saving = false;
     this._deleting = false;
-    this._cursor = 0;
+    this._page = 1;
     this._totalCount = 0;
-    this._loadMoreBtn = null;
+    this._summaryEl = null;
+    this._pageInfoEl = null;
+    this._prevBtn = null;
+    this._nextBtn = null;
     this._editingName = '';
     this._mentionPicker?.destroy?.();
     this._mentionPicker = null;

@@ -18,20 +18,28 @@
     --smart-board-surface-2: #fbfcff;
 
     /* Borders & shadows */
-    --smart-board-border: rgba(15, 23, 42, 0.10);
-    --smart-board-border-strong: rgba(15, 23, 42, 0.14);
+    --smart-board-border: rgba(15, 23, 42, 0.12);
+    --smart-board-border-strong: rgba(15, 23, 42, 0.18);
     --smart-board-shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
-    --smart-board-shadow-md: 0 10px 30px rgba(15, 23, 42, 0.10);
-    --smart-board-shadow-lg: 0 18px 50px rgba(15, 23, 42, 0.14);
+    --smart-board-shadow-md: 0 6px 18px rgba(15, 23, 42, 0.08);
+    --smart-board-shadow-lg: 0 12px 32px rgba(15, 23, 42, 0.10);
 
     /* Typography */
     --smart-board-text: #0f172a;
     --smart-board-text-muted: rgba(15, 23, 42, 0.62);
 
     /* Radius */
-    --smart-board-radius-sm: 8px;
-    --smart-board-radius-md: 12px;
-    --smart-board-radius-lg: 16px;
+    --smart-board-radius-sm: 6px;
+    --smart-board-radius-md: 8px;
+    --smart-board-radius-lg: 10px;
+
+    /* Spacing */
+    --smart-board-space-1: 4px;
+    --smart-board-space-2: 8px;
+    --smart-board-space-3: 12px;
+    --smart-board-space-4: 16px;
+    --smart-board-space-5: 20px;
+    --smart-board-space-6: 24px;
 
     /* Focus */
     --smart-board-focus: 0 0 0 4px rgba(37, 99, 235, 0.18);

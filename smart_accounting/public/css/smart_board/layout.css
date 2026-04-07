@@ -26,27 +26,27 @@
 .sidebar-nav {
     flex: 1;
     overflow-y: auto;
-    padding: 12px 0;
+    padding: var(--smart-board-space-3) 0;
 }
 
 .nav-section {
-    margin-bottom: 10px;
+    margin-bottom: var(--smart-board-space-2);
 }
 
 .nav-section-title {
-    padding: 8px 20px;
+    padding: var(--smart-board-space-2) var(--smart-board-space-5);
     font-size: 12px;
     font-weight: 600;
     text-transform: uppercase;
     color: var(--smart-board-text-muted);
-    letter-spacing: 0.5px;
+    letter-spacing: 0.04em;
 }
 
 .nav-section-title.sb-boards-title {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 10px;
+    gap: var(--smart-board-space-2);
 }
 
 .sb-boards-settings {
@@ -55,7 +55,7 @@
     color: var(--smart-board-text-muted);
     cursor: pointer;
     padding: 2px 6px;
-    border-radius: 8px;
+    border-radius: var(--smart-board-radius-sm);
     line-height: 1;
     display: inline-flex;
     align-items: center;
@@ -70,13 +70,13 @@
 .nav-item {
     display: flex;
     align-items: center;
-    padding: 10px 16px;
+    padding: 10px var(--smart-board-space-4);
     color: var(--smart-board-text);
     text-decoration: none;
     transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
     cursor: pointer;
-    border-radius: 10px;
-    margin: 2px 10px;
+    border-radius: var(--smart-board-radius-md);
+    margin: 2px var(--smart-board-space-3);
 }
 
 .nav-item:hover {
@@ -110,7 +110,7 @@
     width: 24px;
     height: 24px;
     line-height: 1;
-    border-radius: 8px;
+    border-radius: var(--smart-board-radius-sm);
     cursor: pointer;
     opacity: 0;
     transition: opacity 0.12s ease, background 0.12s ease, color 0.12s ease;
@@ -138,9 +138,9 @@
     min-width: 190px;
     background: #fff;
     border: 1px solid var(--smart-board-border);
-    border-radius: 10px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
-    padding: 6px;
+    border-radius: var(--smart-board-radius-md);
+    box-shadow: var(--smart-board-shadow-md);
+    padding: var(--smart-board-space-1);
 }
 
 .sb-board-item.is-open .sb-board-item__menu {
@@ -152,8 +152,8 @@
     border: 0;
     background: transparent;
     text-align: left;
-    padding: 8px 10px;
-    border-radius: 8px;
+    padding: var(--smart-board-space-2) var(--smart-board-space-3);
+    border-radius: var(--smart-board-radius-sm);
     color: var(--smart-board-text);
     font-size: 13px;
     cursor: pointer;
@@ -173,7 +173,7 @@
 }
 
 .nav-icon {
-    margin-right: 12px;
+    margin-right: var(--smart-board-space-3);
     width: 24px;
     height: 24px;
     display: inline-flex;
@@ -208,18 +208,18 @@
 .nav-divider {
     height: 1px;
     background: var(--smart-board-border);
-    margin: 10px 16px;
+    margin: var(--smart-board-space-2) var(--smart-board-space-4);
 }
 
 .sidebar-footer {
-    padding: 14px 16px;
+    padding: var(--smart-board-space-3) var(--smart-board-space-4);
     border-top: 1px solid var(--smart-board-border);
 }
 
 .user-info {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: var(--smart-board-space-2);
 }
 
 .user-avatar {
@@ -258,7 +258,7 @@
     height: var(--smart-board-header-height);
     background: var(--smart-board-surface);
     border-bottom: 1px solid var(--smart-board-border);
-    padding: 0 24px;
+    padding: 0 var(--smart-board-space-6);
 }
 
 .header-wrapper {
@@ -271,7 +271,7 @@
 .header-left {
     display: flex;
     align-items: baseline;
-    gap: 12px;
+    gap: var(--smart-board-space-3);
 }
 
 .view-title {
@@ -289,7 +289,7 @@
 .header-right {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: var(--smart-board-space-3);
 }
 
 .header-search {
