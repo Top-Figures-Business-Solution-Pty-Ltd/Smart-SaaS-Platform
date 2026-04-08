@@ -8,6 +8,8 @@ import { ApiService } from './api.js';
 export class ViewService {
     static _defaultViewCache = new Map(); // projectType -> { ts, view }
     static _cacheTtlMs = 15_000;
+    static _pageSize = 200;
+    static _maxPages = 50;
     static normalizeFilters(raw) {
         // Normalize Saved View.filters into:
         // { filters: [], or_filters: [], search: '', ui: {} }
@@ -61,25 +63,41 @@ export class ViewService {
             return value;
         }
     }
+
+    static async _getListPaged({ filters = [], orderBy = 'modified desc', limitPageLength = null } = {}) {
+        const pageSize = Math.max(1, Number(limitPageLength) || this._pageSize);
+        const all = [];
+
+        for (let page = 0; page < this._maxPages; page += 1) {
+            const response = await frappe.call({
+                method: 'frappe.client.get_list',
+                args: {
+                    doctype: 'Saved View',
+                    fields: ['name', 'title', 'project_type', 'columns', 'filters', 'sort_by', 'sort_order', 'is_default', 'owner', 'modified', 'reference_doctype', 'is_active', 'scope', 'sidebar_order'],
+                    filters,
+                    order_by: orderBy,
+                    limit_start: page * pageSize,
+                    limit_page_length: pageSize,
+                }
+            });
+            const rows = Array.isArray(response?.message) ? response.message : [];
+            all.push(...rows);
+            if (rows.length < pageSize) break;
+        }
+
+        return all;
+    }
     /**
      * 获取所有Saved Views
      */
     static async fetchViews(projectType = null) {
         try {
             // v2: projectType is derived from filters; do not hard-filter by Saved View.project_type (deprecated)
-            const filters = [];
-            
-            const response = await frappe.call({
-                method: 'frappe.client.get_list',
-                args: {
-                    doctype: 'Saved View',
-                    fields: ['name', 'title', 'project_type', 'columns', 'filters', 'sort_by', 'sort_order', 'is_default', 'owner', 'modified', 'reference_doctype', 'is_active', 'scope', 'sidebar_order'],
-                    filters: filters,
-                    order_by: 'is_default desc, title asc',
-                    limit_page_length: 1000,
-                }
+            const rows = await this._getListPaged({
+                filters: [],
+                orderBy: 'is_default desc, title asc',
+                limitPageLength: this._pageSize,
             });
-            const rows = response.message || [];
             if (!projectType) return rows;
             const pt = String(projectType);
             return rows.filter((v) => this.inferPinnedProjectType(v) === pt);
@@ -101,24 +119,17 @@ export class ViewService {
                     return cached.view || null;
                 }
             }
-            const response = await frappe.call({
-                method: 'frappe.client.get_list',
-                args: {
-                    doctype: 'Saved View',
-                    fields: ['name', 'title', 'project_type', 'columns', 'filters', 'sort_by', 'sort_order', 'is_default', 'owner', 'modified', 'reference_doctype', 'is_active', 'scope', 'sidebar_order'],
-                    // Server-side narrow-down (still need client-side match for pinned project type)
-                    filters: [
-                        ['reference_doctype', '=', 'Project'],
-                        ['scope', '=', 'Shared'],
-                        ['is_active', '=', 1],
-                        ['is_default', '=', 1],
-                    ],
-                    limit_page_length: 200,
-                    order_by: 'modified desc'
-                }
+            const rows = await this._getListPaged({
+                // Server-side narrow-down (still need client-side match for pinned project type)
+                filters: [
+                    ['reference_doctype', '=', 'Project'],
+                    ['scope', '=', 'Shared'],
+                    ['is_active', '=', 1],
+                    ['is_default', '=', 1],
+                ],
+                orderBy: 'modified desc',
+                limitPageLength: this._pageSize,
             });
-
-            const rows = response.message || [];
             const matched = rows
                 .filter((v) => this.inferPinnedProjectType(v) === pt)
                 .filter((v) => Number(v?.is_default || 0) === 1);

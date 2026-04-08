@@ -18,8 +18,7 @@ export class AutomationLogsApp {
       loading: false,
       error: null,
       limit: 30,
-      offset: 0,
-      hasMore: true,
+      page: 1,
       totalCount: null,
     };
     this._filters = {
@@ -53,12 +52,10 @@ export class AutomationLogsApp {
 
   async _fetch(reset = false) {
     if (this._state.loading) return;
+    const targetPage = reset ? 1 : Math.max(1, Number(this._state.page) || 1);
     this._state.loading = true;
     this._state.error = null;
-    if (reset) {
-      this._state.offset = 0;
-      this._state.hasMore = true;
-    }
+    if (reset) this._state.page = 1;
     this.render();
     try {
       const msg = await AutomationLogService.listRuns({
@@ -67,16 +64,20 @@ export class AutomationLogsApp {
         executionSource: this._filters.executionSource,
         projectType: this._filters.projectType,
         search: this._filters.search,
-        limitStart: this._state.offset,
+        limitStart: (targetPage - 1) * this._state.limit,
         limit: this._state.limit,
       });
       const items = Array.isArray(msg?.items) ? msg.items : [];
       const totalCount = Number(msg?.meta?.total_count || 0) || 0;
-      if (reset) this._state.items = items;
-      else this._state.items = [...(this._state.items || []), ...items];
-      this._state.offset = (this._state.items || []).length;
+      this._state.items = items;
       this._state.totalCount = totalCount;
-      this._state.hasMore = (this._state.items || []).length < totalCount;
+      const totalPages = this._totalPages(totalCount);
+      if (targetPage > totalPages) {
+        this._state.page = totalPages;
+        this._state.loading = false;
+        return this._fetch(false);
+      }
+      this._state.page = targetPage;
     } catch (e) {
       this._state.error = e?.message || String(e);
     } finally {
@@ -87,16 +88,50 @@ export class AutomationLogsApp {
 
   _bind() {
     this.container.addEventListener('click', (e) => {
-      const loadMore = e.target?.closest?.('#sbAutoLogsLoadMore');
-      if (loadMore) {
+      const firstPage = e.target?.closest?.('[data-action="auto-logs-first-page"]');
+      if (firstPage) {
         e.preventDefault();
+        if (this._state.loading || this._state.page <= 1) return;
+        this._state.page = 1;
         this._fetch(false);
+        return;
+      }
+      const prevPage = e.target?.closest?.('[data-action="auto-logs-prev-page"]');
+      if (prevPage) {
+        e.preventDefault();
+        if (this._state.loading || this._state.page <= 1) return;
+        this._state.page = Math.max(1, Number(this._state.page || 1) - 1);
+        this._fetch(false);
+        return;
+      }
+      const nextPage = e.target?.closest?.('[data-action="auto-logs-next-page"]');
+      if (nextPage) {
+        e.preventDefault();
+        const totalPages = this._totalPages();
+        if (this._state.loading || this._state.page >= totalPages) return;
+        this._state.page = Math.min(totalPages, Number(this._state.page || 1) + 1);
+        this._fetch(false);
+        return;
+      }
+      const lastPage = e.target?.closest?.('[data-action="auto-logs-last-page"]');
+      if (lastPage) {
+        e.preventDefault();
+        const totalPages = this._totalPages();
+        if (this._state.loading || this._state.page >= totalPages) return;
+        this._state.page = totalPages;
+        this._fetch(false);
+        return;
+      }
+      const goPage = e.target?.closest?.('[data-action="auto-logs-go-page"]');
+      if (goPage) {
+        e.preventDefault();
+        this._goToPage();
         return;
       }
       const refresh = e.target?.closest?.('#sbAutoLogsRefresh');
       if (refresh) {
         e.preventDefault();
-        this._fetch(true);
+        this._fetch(false);
         return;
       }
       const openProject = e.target?.closest?.('[data-action="open-project"]');
@@ -109,6 +144,7 @@ export class AutomationLogsApp {
       if (focusAutomation) {
         e.preventDefault();
         this._filters.automation = _clean(focusAutomation.getAttribute('data-automation'));
+        this._state.page = 1;
         this._fetch(true);
         return;
       }
@@ -133,6 +169,7 @@ export class AutomationLogsApp {
       if (result) this._filters.result = _clean(result.value);
       if (source) this._filters.executionSource = _clean(source.value);
       if (projectType) this._filters.projectType = _clean(projectType.value);
+      this._state.page = 1;
       this._fetch(true);
     });
 
@@ -142,8 +179,16 @@ export class AutomationLogsApp {
       clearTimeout(this._searchTimer);
       this._searchTimer = setTimeout(() => {
         this._filters.search = _clean(search.value);
+        this._state.page = 1;
         this._fetch(true);
       }, 250);
+    });
+
+    this.container.addEventListener('keydown', (e) => {
+      const pageInput = e.target?.closest?.('#sbAutoLogsPageInput');
+      if (!pageInput || e.key !== 'Enter') return;
+      e.preventDefault();
+      this._goToPage();
     });
   }
 
@@ -155,6 +200,30 @@ export class AutomationLogsApp {
     };
     if (!project.name) return;
     try { this.app?.focusProject?.(project); } catch (e) {}
+  }
+
+  _totalPages(totalCount = this._state.totalCount) {
+    return Math.max(1, Math.ceil((Number(totalCount) || 0) / Math.max(1, Number(this._state.limit) || 1)));
+  }
+
+  _summaryText() {
+    const total = Number(this._state.totalCount) || 0;
+    if (!total) return '0 automation runs';
+    const page = Math.max(1, Number(this._state.page) || 1);
+    const start = (page - 1) * this._state.limit + 1;
+    const end = Math.min(total, start + Math.max(0, (Number(this._state.items?.length) || 0) - 1));
+    return `${start}-${end} of ${total} runs`;
+  }
+
+  _goToPage() {
+    const input = this.container.querySelector('#sbAutoLogsPageInput');
+    const totalPages = this._totalPages();
+    const raw = Number(input?.value || this._state.page || 1);
+    const nextPage = Math.min(totalPages, Math.max(1, Number.isFinite(raw) ? raw : 1));
+    if (input) input.value = String(nextPage);
+    if (this._state.loading || nextPage === this._state.page) return;
+    this._state.page = nextPage;
+    this._fetch(false);
   }
 
   render() {
@@ -177,8 +246,9 @@ export class AutomationLogsApp {
     ].join('');
 
     const rows = (this._state.items || []).map((row) => this._rowHTML(row)).join('');
-    const loaded = Array.isArray(this._state.items) ? this._state.items.length : 0;
     const total = Number(this._state.totalCount || 0);
+    const totalPages = this._totalPages();
+    const currentPage = Math.min(Math.max(1, Number(this._state.page || 1)), totalPages);
 
     this.container.innerHTML = `
       <div class="sb-page sb-auto-logs">
@@ -205,7 +275,7 @@ export class AutomationLogsApp {
           </div>
           <div class="sb-auto-logs__actions">
             <button class="btn btn-default" id="sbAutoLogsRefresh">Refresh</button>
-            <span class="sb-auto-logs__status">Loaded ${loaded}${total ? ` / ${total}` : ''}</span>
+            <span class="sb-auto-logs__status">${this._state.loading ? 'Loading runs...' : this._summaryText()}</span>
           </div>
         </div>
 
@@ -216,9 +286,18 @@ export class AutomationLogsApp {
         </div>
 
         <div class="sb-auto-logs__footer">
-          <button class="btn btn-default" id="sbAutoLogsLoadMore" ${!this._state.hasMore || this._state.loading ? 'disabled' : ''}>
-            ${this._state.loading ? 'Loading…' : (this._state.hasMore ? 'Load more' : 'No more')}
-          </button>
+          <div class="text-muted" style="font-size:13px;">${this._state.loading ? 'Refreshing...' : `Page ${currentPage} / ${totalPages}`}</div>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end;">
+            <button class="btn btn-default btn-sm" type="button" data-action="auto-logs-first-page" ${this._state.loading || currentPage <= 1 ? 'disabled' : ''}>First</button>
+            <button class="btn btn-default btn-sm" type="button" data-action="auto-logs-prev-page" ${this._state.loading || currentPage <= 1 ? 'disabled' : ''}>Previous</button>
+            <div style="display:flex;align-items:center;gap:6px;">
+              <span class="text-muted" style="font-size:13px;">Go to</span>
+              <input id="sbAutoLogsPageInput" class="form-control" type="number" min="1" max="${totalPages}" value="${currentPage}" style="width:88px; min-height:32px;" />
+              <button class="btn btn-default btn-sm" type="button" data-action="auto-logs-go-page" ${this._state.loading || total === 0 ? 'disabled' : ''}>Go</button>
+            </div>
+            <button class="btn btn-default btn-sm" type="button" data-action="auto-logs-next-page" ${this._state.loading || currentPage >= totalPages || total === 0 ? 'disabled' : ''}>Next</button>
+            <button class="btn btn-default btn-sm" type="button" data-action="auto-logs-last-page" ${this._state.loading || currentPage >= totalPages || total === 0 ? 'disabled' : ''}>Last</button>
+          </div>
         </div>
       </div>
     `;
