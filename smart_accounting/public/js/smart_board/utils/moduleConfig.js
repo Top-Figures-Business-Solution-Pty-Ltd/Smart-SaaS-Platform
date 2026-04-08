@@ -34,6 +34,9 @@ const GRANTS_PROJECT_FIELDS = new Set([
   'project_type',
   'custom_grants_fy_label',
   'custom_grants_abn_snapshot',
+  'custom_grants_deliverer',
+  'custom_grants_state',
+  'custom_grants_industry_category',
   'custom_grants_partner_label',
   'custom_grants_referral_text',
   'custom_grants_owner_name',
@@ -112,6 +115,29 @@ export function filterProjectColumnsForModule(columnsConfig = [], moduleKey = nu
     .map((c) => ({ ...c }));
 
   if (key === 'grants' && String(viewType || '').trim() === 'Smart Grants') {
+    const requiredAfterAbn = [
+      { field: 'custom_grants_deliverer', label: 'Deliverer', width: 150 },
+      { field: 'custom_grants_state', label: 'State', width: 120 },
+      { field: 'custom_grants_industry_category', label: 'Industry', width: 180 },
+    ];
+    const hasAbn = list.some((c) => String(c?.field || '').trim() === 'custom_grants_abn_snapshot');
+    let insertIdx = list.findIndex((c) => String(c?.field || '').trim() === 'custom_grants_abn_snapshot');
+    if (insertIdx < 0) insertIdx = list.length - 1;
+
+    requiredAfterAbn.forEach((col, offset) => {
+      const field = String(col.field || '').trim();
+      const existingIdx = list.findIndex((c) => String(c?.field || '').trim() === field);
+      const targetIdx = hasAbn ? (insertIdx + 1 + offset) : Math.min(list.length, offset);
+      if (existingIdx === -1) {
+        list.splice(targetIdx, 0, { ...col });
+        return;
+      }
+      const [existing] = list.splice(existingIdx, 1);
+      const normalized = { ...col, ...existing, label: existing?.label || col.label, width: existing?.width || col.width };
+      const nextIdx = Math.min(targetIdx, list.length);
+      list.splice(nextIdx, 0, normalized);
+    });
+
     const hasAddress = list.some((c) => String(c?.field || '').trim() === 'custom_grants_address_snapshot');
     if (!hasAddress) {
       const addr = { field: 'custom_grants_address_snapshot', label: 'Address', width: 220 };

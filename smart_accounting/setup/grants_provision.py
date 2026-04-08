@@ -76,10 +76,28 @@ def _project_custom_fields() -> list[dict]:
             "insert_after": "custom_grants_fy_label",
         },
         {
+            "fieldname": "custom_grants_deliverer",
+            "label": "Deliverer",
+            "fieldtype": "Data",
+            "insert_after": "custom_grants_abn_snapshot",
+        },
+        {
+            "fieldname": "custom_grants_state",
+            "label": "State",
+            "fieldtype": "Data",
+            "insert_after": "custom_grants_deliverer",
+        },
+        {
+            "fieldname": "custom_grants_industry_category",
+            "label": "Industry Category",
+            "fieldtype": "Data",
+            "insert_after": "custom_grants_state",
+        },
+        {
             "fieldname": "custom_grants_partner_label",
             "label": "Partner",
             "fieldtype": "Data",
-            "insert_after": "custom_grants_abn_snapshot",
+            "insert_after": "custom_grants_industry_category",
         },
         {
             "fieldname": "custom_grants_referral_text",

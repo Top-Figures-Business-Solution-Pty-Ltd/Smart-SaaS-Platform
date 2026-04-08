@@ -435,6 +435,106 @@ def sanitize_saved_view_columns(*, dry_run: bool = True, reference_doctype: str 
 	return {"dry_run": bool(dry_run), "reference_doctype": ref, "updated": updated, "skipped": skipped, "errors": errors}
 
 
+def ensure_smart_grants_columns(*, dry_run: bool = True) -> dict:
+	"""
+	Bench helper: ensure Smart Grants saved views contain required grants columns
+	in the expected order right after ABN.
+
+	Usage:
+	  bench --site <site> execute smart_accounting.api.project_board_admin.ensure_smart_grants_columns --kwargs "{'dry_run':True}"
+	  bench --site <site> execute smart_accounting.api.project_board_admin.ensure_smart_grants_columns --kwargs "{'dry_run':False}"
+	"""
+
+	required_after_abn = [
+		{"field": "custom_grants_deliverer", "label": "Deliverer", "width": 150},
+		{"field": "custom_grants_state", "label": "State", "width": 120},
+		{"field": "custom_grants_industry_category", "label": "Industry", "width": 180},
+	]
+	address_col = {"field": "custom_grants_address_snapshot", "label": "Address", "width": 220}
+
+	def _parse_json(v: Any) -> Any:
+		if v is None:
+			return None
+		if isinstance(v, (dict, list)):
+			return v
+		if isinstance(v, str):
+			s = v.strip()
+			if not s:
+				return None
+			try:
+				return frappe.parse_json(s)
+			except Exception:
+				return None
+		return None
+
+	def _ensure_cols(cols: Any) -> list[dict]:
+		items = [c for c in (cols if isinstance(cols, list) else []) if isinstance(c, dict) and str(c.get("field") or "").strip()]
+		out = [dict(c) for c in items]
+		has_abn = any(str(c.get("field") or "").strip() == "custom_grants_abn_snapshot" for c in out)
+		insert_idx = next((i for i, c in enumerate(out) if str(c.get("field") or "").strip() == "custom_grants_abn_snapshot"), len(out) - 1)
+		for offset, col in enumerate(required_after_abn, start=1):
+			field = str(col.get("field") or "").strip()
+			existing_idx = next((i for i, c in enumerate(out) if str(c.get("field") or "").strip() == field), -1)
+			target_idx = (insert_idx + offset) if has_abn else min(len(out), offset - 1)
+			if existing_idx >= 0:
+				existing = out.pop(existing_idx)
+				normalized = {**col, **existing}
+			else:
+				normalized = dict(col)
+			out.insert(min(target_idx, len(out)), normalized)
+
+		has_address = any(str(c.get("field") or "").strip() == "custom_grants_address_snapshot" for c in out)
+		if not has_address:
+			contact_idx = next((i for i, c in enumerate(out) if str(c.get("field") or "").strip() == "custom_grants_contact_name"), -1)
+			if contact_idx >= 0:
+				out.insert(contact_idx, dict(address_col))
+			else:
+				out.append(dict(address_col))
+		return out
+
+	rows = frappe.get_all(
+		"Saved View",
+		filters={"project_type": "Smart Grants"},
+		fields=["name", "title", "columns", "modified"],
+		ignore_permissions=True,
+		limit_page_length=10000,
+	)
+
+	updated = []
+	skipped = []
+	errors = []
+
+	for row in (rows or []):
+		name = str(row.get("name") or "").strip()
+		try:
+			raw = _parse_json(row.get("columns"))
+			if isinstance(raw, list):
+				next_obj = _ensure_cols(raw)
+			elif isinstance(raw, dict):
+				next_obj = {
+					**raw,
+					"project": _ensure_cols(raw.get("project")),
+					"tasks": raw.get("tasks") if isinstance(raw.get("tasks"), list) else [],
+				}
+			else:
+				next_obj = {"project": _ensure_cols([]), "tasks": []}
+
+			if raw == next_obj:
+				skipped.append(name)
+				continue
+
+			updated.append({"name": name, "title": row.get("title"), "columns": next_obj})
+			if not dry_run:
+				frappe.db.set_value("Saved View", name, "columns", frappe.as_json(next_obj), update_modified=False)
+		except Exception as e:
+			errors.append({"name": name, "error": str(e)})
+
+	if (not dry_run) and updated:
+		frappe.db.commit()
+
+	return {"dry_run": bool(dry_run), "updated": updated, "skipped": skipped, "errors": errors}
+
+
 def find_project_type_link_refs(project_type: str) -> dict:
 	"""
 	Bench helper: find any Link-field references that would block deleting a Project Type.

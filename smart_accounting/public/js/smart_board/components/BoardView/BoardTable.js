@@ -370,7 +370,12 @@ export class BoardTable {
             const droppedDeprecated = Array.isArray(cfgRaw) && cfgRaw.length !== cfg.length;
             const filteredByModule = Array.isArray(cfgRaw) && cfgRaw.length !== cfg.length;
             const missingRequiredModuleCols = String(this.moduleKey || '') === 'grants'
-                && !(cfg || []).some((c) => String(c?.field || '').trim() === 'custom_grants_address_snapshot');
+                && [
+                    'custom_grants_deliverer',
+                    'custom_grants_state',
+                    'custom_grants_industry_category',
+                    'custom_grants_address_snapshot',
+                ].some((field) => !(cfg || []).some((c) => String(c?.field || '').trim() === field));
             if (view?.name && (isLegacyArray || tasksEmpty || droppedDeprecated || filteredByModule || missingRequiredModuleCols)) {
                 await ViewService.updateView(view.name, { columns: { project: cfg || [], tasks: nextTaskCols } });
                 this._setSavedViewColumnsInMemory({ project: cfg || [], tasks: nextTaskCols });
