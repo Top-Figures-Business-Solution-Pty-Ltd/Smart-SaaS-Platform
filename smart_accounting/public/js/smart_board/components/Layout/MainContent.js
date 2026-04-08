@@ -136,6 +136,12 @@ export class MainContent {
             const status = btn.getAttribute('data-status') || '';
             try { this.options?.app?.openStatusProjects?.(status); } catch (e2) {}
         });
+        this.container.addEventListener('click', async (e) => {
+            const btn = e.target?.closest?.('.sb-dash-load-more');
+            if (!btn) return;
+            e.preventDefault();
+            try { await this.store?.dispatch?.('dashboard/fetchMyProjects', { append: true }); } catch (e2) {}
+        });
     }
     
     updateView(view) {

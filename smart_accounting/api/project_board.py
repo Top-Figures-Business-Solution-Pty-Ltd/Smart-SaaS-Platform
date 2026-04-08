@@ -43,6 +43,13 @@ def _normalize_list(value: Any) -> list:
 	return []
 
 
+def _normalize_int(value: Any, default: int = 0) -> int:
+	try:
+		return int(value)
+	except Exception:
+		return int(default)
+
+
 def _parse_json_if_string(value: Any) -> Any:
 	if not isinstance(value, str):
 		return value
@@ -1860,7 +1867,7 @@ def find_project_type_link_refs(project_type: str) -> dict:
 
 
 @frappe.whitelist()
-def get_my_projects_with_roles() -> dict:
+def get_my_projects_with_roles(limit_start: int = 0, limit_page_length: int = 50) -> dict:
 	"""
 	Dashboard: list Projects related to current user via Project.custom_team_members.
 
@@ -1872,8 +1879,10 @@ def get_my_projects_with_roles() -> dict:
 	_ensure_logged_in()
 	user = frappe.session.user
 	user = str(user or "").strip()
+	limit_start = max(0, _normalize_int(limit_start, 0))
+	limit_page_length = max(1, min(100, _normalize_int(limit_page_length, 50)))
 	if not user or user == "Guest":
-		return {"projects": []}
+		return {"projects": [], "meta": {"total_count": 0, "limit_start": limit_start, "limit_page_length": limit_page_length, "status_counts": {}}}
 
 	# Child table may be permission-guarded by parent; read only rows for current user.
 	try:
@@ -1898,7 +1907,7 @@ def get_my_projects_with_roles() -> dict:
 			parent_to_roles[p].append(role)
 
 	if not parent_to_roles:
-		return {"projects": []}
+		return {"projects": [], "meta": {"total_count": 0, "limit_start": limit_start, "limit_page_length": limit_page_length, "status_counts": {}}}
 
 	# Respect Project permissions and only keep active Projects for Dashboard.
 	allowed, prows = _get_readable_project_rows(
@@ -1908,7 +1917,7 @@ def get_my_projects_with_roles() -> dict:
 		limit_page_length=10000,
 	)
 	if not allowed:
-		return {"projects": []}
+		return {"projects": [], "meta": {"total_count": 0, "limit_start": limit_start, "limit_page_length": limit_page_length, "status_counts": {}}}
 
 	by_name = {p.get("name"): p for p in (prows or []) if p.get("name")}
 	out = []
@@ -1930,7 +1939,21 @@ def get_my_projects_with_roles() -> dict:
 			}
 		)
 
-	return {"projects": out}
+	out.sort(key=lambda x: (str(x.get("project_name") or "").lower(), str(x.get("name") or "").lower()))
+	status_counts: dict[str, int] = {}
+	for row in out:
+		status = str(row.get("status") or "Unknown").strip() or "Unknown"
+		status_counts[status] = int(status_counts.get(status) or 0) + 1
+	page = out[limit_start : limit_start + limit_page_length]
+	return {
+		"projects": page,
+		"meta": {
+			"total_count": len(out),
+			"limit_start": limit_start,
+			"limit_page_length": limit_page_length,
+			"status_counts": status_counts,
+		},
+	}
 
 @frappe.whitelist()
 def hydrate_project_children(projects: Any) -> dict:

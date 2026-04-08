@@ -12,15 +12,17 @@ function _esc(s) {
 }
 
 export class ClientProjectsTable {
-  constructor(container, { onOpenBoard } = {}) {
+  constructor(container, { onOpenBoard, onLoadMore } = {}) {
     this.container = container;
     this.onOpenBoard = onOpenBoard || (() => {});
+    this.onLoadMore = onLoadMore || (() => {});
     this._items = [];
     this._onClick = null;
   }
 
-  render({ items = [], loading = false, error = null } = {}) {
+  render({ items = [], loading = false, loadingMore = false, error = null, totalCount = 0, hasMore = false } = {}) {
     this._items = Array.isArray(items) ? items : [];
+    const total = Math.max(Number(totalCount) || 0, this._items.length);
 
     const rows = this._items.map((p, idx) => {
       const customer = _esc(p?.customer || '');
@@ -45,6 +47,7 @@ export class ClientProjectsTable {
       : (error
           ? `<div class="text-danger" style="padding: 16px;">${_esc(error)}</div>`
           : `
+              <div class="text-muted" style="font-size:12px; padding: 0 0 10px 0;">Showing ${this._items.length} of ${total}</div>
               <div style="overflow:auto;">
                 <table class="table table-bordered" style="margin:0;">
                   <thead>
@@ -61,6 +64,15 @@ export class ClientProjectsTable {
                   </tbody>
                 </table>
               </div>
+              <div style="display:flex;justify-content:center;padding:12px 0 0 0;">
+                <button
+                  class="btn btn-default btn-sm"
+                  type="button"
+                  data-action="load-more-projects"
+                  ${loadingMore || !hasMore ? 'disabled' : ''}
+                  style="${hasMore ? '' : 'display:none;'}"
+                >${loadingMore ? 'Loading...' : 'Load more'}</button>
+              </div>
             `);
 
     this.container.innerHTML = body;
@@ -70,6 +82,11 @@ export class ClientProjectsTable {
   _bind() {
     if (this._onClick) this.container.removeEventListener('click', this._onClick);
     this._onClick = (e) => {
+      const loadMoreBtn = e.target?.closest?.('button[data-action="load-more-projects"]');
+      if (loadMoreBtn) {
+        this.onLoadMore();
+        return;
+      }
       const btn = e.target?.closest?.('button[data-action="open-board"]');
       if (!btn) return;
       const tr = btn.closest('tr[data-idx]');

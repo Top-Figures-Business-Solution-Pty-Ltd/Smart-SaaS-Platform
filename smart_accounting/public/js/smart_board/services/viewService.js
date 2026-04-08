@@ -73,9 +73,10 @@ export class ViewService {
                 method: 'frappe.client.get_list',
                 args: {
                     doctype: 'Saved View',
-                    fields: ['*'],
+                    fields: ['name', 'title', 'project_type', 'columns', 'filters', 'sort_by', 'sort_order', 'is_default', 'owner', 'modified', 'reference_doctype', 'is_active', 'scope', 'sidebar_order'],
                     filters: filters,
-                    order_by: 'is_default desc, title asc'
+                    order_by: 'is_default desc, title asc',
+                    limit_page_length: 1000,
                 }
             });
             const rows = response.message || [];

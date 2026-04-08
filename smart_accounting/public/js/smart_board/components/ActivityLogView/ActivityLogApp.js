@@ -17,6 +17,7 @@ export class ActivityLogApp {
       limit: 50,
       offset: 0,
       hasMore: true,
+      totalCount: 0,
       unlocked: false,
     };
     this._filters = {
@@ -73,7 +74,8 @@ export class ActivityLogApp {
         this._state.items = [...(this._state.items || []), ...items];
       }
       this._state.unlocked = unlocked;
-      this._state.hasMore = items.length >= this._state.limit;
+      this._state.totalCount = Number(r?.meta?.total_count || this._state.items.length || 0);
+      this._state.hasMore = (this._state.items || []).length < this._state.totalCount;
       this._state.offset = (this._state.items || []).length;
     } catch (e) {
       this._state.error = e?.message || String(e);
@@ -129,7 +131,7 @@ export class ActivityLogApp {
   }
 
   render() {
-    const { items, loading, error, hasMore, unlocked } = this._state;
+    const { items, loading, error, hasMore, unlocked, totalCount } = this._state;
     const userOptions = [
       '<option value="">All users</option>',
       ...this._users.map((u) => {
@@ -185,6 +187,7 @@ export class ActivityLogApp {
         </div>
 
         <div class="sb-table-scroll sb-activity__table-wrap">
+          <div class="text-muted" style="font-size:12px; padding:12px 12px 0 12px;">Showing ${(items || []).length} of ${Math.max((items || []).length, Number(totalCount) || 0)}</div>
           <table class="table table-borderless sb-activity__table" style="margin:0;">
             <thead>
               <tr>

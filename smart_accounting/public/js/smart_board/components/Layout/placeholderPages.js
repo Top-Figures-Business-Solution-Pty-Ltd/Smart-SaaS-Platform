@@ -21,16 +21,19 @@ export function renderPlaceholderHTML(view, store) {
     const myProjects = dashboard?.myProjects || [];
     const projects = view === 'dashboard' ? myProjects : (state.projects?.items || []);
 
-    const total = projects.length;
-    const byStatus = projects.reduce((acc, p) => {
-        const s = p.status || 'Unknown';
-        acc[s] = (acc[s] || 0) + 1;
-        return acc;
-    }, {});
+    const total = Number(view === 'dashboard' ? dashboard?.totalCount : projects.length) || 0;
+    const byStatus = view === 'dashboard'
+        ? (dashboard?.statusCounts || {})
+        : projects.reduce((acc, p) => {
+            const s = p.status || 'Unknown';
+            acc[s] = (acc[s] || 0) + 1;
+            return acc;
+        }, {});
 
     if (view === 'dashboard') {
         const loading = !!dashboard?.loading;
         const err = dashboard?.error;
+        const hasMore = myProjects.length > 0 && myProjects.length < total;
         const activeStatuses = Object.entries(byStatus)
             .filter(([, v]) => Number(v) > 0)
             .sort((a, b) => b[1] - a[1])
@@ -59,6 +62,7 @@ export function renderPlaceholderHTML(view, store) {
             return `
               <div class="sb-dash__list">
                 <div class="sb-dash__list-title">My Projects</div>
+                <div class="text-muted" style="font-size:12px;padding:10px 14px 0 14px;">Showing ${myProjects.length} of ${total}</div>
                 <table class="sb-dash__table">
                   <thead>
                     <tr>
@@ -72,6 +76,9 @@ export function renderPlaceholderHTML(view, store) {
                     ${rows}
                   </tbody>
                 </table>
+                <div style="display:flex;justify-content:center;padding:12px 14px 14px 14px;">
+                  <button class="btn btn-default btn-sm sb-dash-load-more" type="button" ${loading || !hasMore ? 'disabled' : ''} style="${hasMore ? '' : 'display:none;'}">${loading && hasMore ? 'Loading...' : 'Load more'}</button>
+                </div>
               </div>
             `;
         })();

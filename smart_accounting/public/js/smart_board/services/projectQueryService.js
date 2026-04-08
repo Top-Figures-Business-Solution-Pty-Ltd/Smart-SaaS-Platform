@@ -532,12 +532,18 @@ export class ProjectQueryService {
     }
   }
 
-  static async getMyProjectsWithRoles() {
+  static async getMyProjectsWithRoles({ limitStart = 0, limit = 50 } = {}) {
     const r = await frappe.call({
       method: 'smart_accounting.api.project_board.get_my_projects_with_roles',
-      args: {},
+      args: {
+        limit_start: Math.max(0, Number(limitStart) || 0),
+        limit_page_length: Math.max(1, Number(limit) || 50),
+      },
     });
-    return r?.message?.projects || [];
+    return {
+      projects: r?.message?.projects || [],
+      meta: r?.message?.meta || {},
+    };
   }
 
   /**

@@ -18,9 +18,20 @@ export class AutomationService {
   /**
    * List all automation rules.
    */
-  static async getAutomations() {
-    const r = await frappe.call({ method: `${API_BASE}.get_automations`, quiet: true });
-    return r?.message?.items || [];
+  static async getAutomations({ limitStart = 0, limit = 50, search = '' } = {}) {
+    const r = await frappe.call({
+      method: `${API_BASE}.get_automations`,
+      quiet: true,
+      args: {
+        limit_start: Math.max(0, Number(limitStart) || 0),
+        limit_page_length: Math.max(1, Number(limit) || 50),
+        search: String(search || ''),
+      },
+    });
+    return {
+      items: r?.message?.items || [],
+      meta: r?.message?.meta || {},
+    };
   }
 
   /**

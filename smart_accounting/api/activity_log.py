@@ -314,6 +314,7 @@ def get_activity_log(
 			"limit_start": limit_start,
 			"limit_page_length": limit_page_length,
 			"unlocked": unlocked,
+			"total_count": len(events),
 		},
 	}
 

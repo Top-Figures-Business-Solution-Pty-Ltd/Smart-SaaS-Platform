@@ -44,7 +44,8 @@ export class AutomationLogsApp {
 
   async _loadAutomations() {
     try {
-      this._automations = await AutomationService.getAutomations();
+      const res = await AutomationService.getAutomations({ limit: 1000 });
+      this._automations = Array.isArray(res?.items) ? res.items : [];
     } catch (e) {
       this._automations = [];
     }

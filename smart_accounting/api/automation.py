@@ -277,20 +277,54 @@ def get_automation_meta() -> dict:
 # ============================================================
 
 @frappe.whitelist()
-def get_automations() -> dict:
+def get_automations(limit_start: int = 0, limit_page_length: int = 50, search: str | None = None) -> dict:
     _ensure_logged_in()
+    try:
+        limit_start = max(0, int(limit_start or 0))
+    except Exception:
+        limit_start = 0
+    try:
+        limit_page_length = max(1, min(100, int(limit_page_length or 50)))
+    except Exception:
+        limit_page_length = 50
+    q = str(search or "").strip()
 
     try:
+        filters = {}
+        or_filters = None
+        if q:
+            like = f"%{q}%"
+            or_filters = [
+                ["automation_name", "like", like],
+                ["name", "like", like],
+                ["trigger_type", "like", like],
+            ]
         items = frappe.get_all(
             "Board Automation",
+            filters=filters,
+            or_filters=or_filters,
             fields=[
                 "name", "enabled", "automation_name", "trigger_type", "trigger_config",
                 "actions", "execution_count", "last_triggered",
             ],
             order_by="creation asc",
+            limit_start=limit_start,
+            limit_page_length=limit_page_length,
         )
+        total_rows = frappe.get_all(
+            "Board Automation",
+            filters=filters,
+            or_filters=or_filters,
+            fields=["count(name) as cnt"],
+            limit_page_length=1,
+        )
+        try:
+            total_count = int((total_rows or [{}])[0].get("cnt") or 0)
+        except Exception:
+            total_count = len(items or [])
     except Exception:
         items = []
+        total_count = 0
 
     for item in items:
         item["trigger_config"] = _parse_json(item.get("trigger_config"))
@@ -302,7 +336,14 @@ def get_automations() -> dict:
                 raw_actions = []
         item["actions"] = raw_actions if isinstance(raw_actions, list) else []
 
-    return {"items": items}
+    return {
+        "items": items,
+        "meta": {
+            "total_count": int(total_count or 0),
+            "limit_start": limit_start,
+            "limit_page_length": limit_page_length,
+        },
+    }
 
 
 @frappe.whitelist()

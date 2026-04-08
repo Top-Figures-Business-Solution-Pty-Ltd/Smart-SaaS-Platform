@@ -19,6 +19,9 @@ export class ClientProjectsApp {
     const mount = this.container.querySelector('#sbClientProjectsTable');
     this._table = new ClientProjectsTable(mount, {
       onOpenBoard: (p) => this.onOpenBoard(p),
+      onLoadMore: async () => {
+        try { await this.store?.dispatch?.('projects/fetchMoreProjects'); } catch (e) {}
+      },
     });
 
     this._unsub = this.store?.subscribe?.(() => this.render());
@@ -31,7 +34,10 @@ export class ClientProjectsApp {
     this._table?.render?.({
       items: projects.items || [],
       loading: !!projects.loading,
+      loadingMore: !!projects.loadingMore,
       error: projects.error || null,
+      totalCount: Number(projects.totalCount) || 0,
+      hasMore: !!projects.hasMore,
     });
   }
 

@@ -8,14 +8,21 @@ import { notify } from '../services/uiAdapter.js';
 
 export async function openAutomationFlow() {
   // Load meta + existing rules in parallel
-  const [meta, items] = await Promise.all([
+  const [meta, automationRes] = await Promise.all([
     AutomationService.getMeta(),
-    AutomationService.getAutomations(),
+    AutomationService.getAutomations({ limit: 50 }),
   ]);
+  const items = Array.isArray(automationRes?.items) ? automationRes.items : [];
+  const totalCount = Number(automationRes?.meta?.total_count || items.length || 0);
 
   const modal = new AutomationModal({
     meta,
     items,
+    totalCount,
+    pageSize: 50,
+    onLoadMore: async ({ offset, limit, search } = {}) => {
+      return await AutomationService.getAutomations({ limitStart: offset, limit, search });
+    },
     onSave: async (rule) => {
       try {
         const result = await AutomationService.saveAutomation(rule);

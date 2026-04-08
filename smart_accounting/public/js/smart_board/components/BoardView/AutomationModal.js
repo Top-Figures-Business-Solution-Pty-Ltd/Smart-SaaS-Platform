@@ -10,7 +10,7 @@ import { Modal } from '../Common/Modal.js';
 import { AutomationLogService } from '../../services/automationLogService.js';
 
 export class AutomationModal {
-  constructor({ meta = {}, items = [], onSave, onToggle, onDelete, onOpenProject, onOpenLogs, onClose } = {}) {
+  constructor({ meta = {}, items = [], totalCount = 0, pageSize = 50, onLoadMore, onSave, onToggle, onDelete, onOpenProject, onOpenLogs, onClose } = {}) {
     this.meta = meta || {};
     this.items = Array.isArray(items) ? items.map((it) => ({
       ...it,
@@ -21,6 +21,7 @@ export class AutomationModal {
     this.onSave = onSave || (async () => {});
     this.onToggle = onToggle || (async () => {});
     this.onDelete = onDelete || (async () => {});
+    this.onLoadMore = onLoadMore || (async () => ({ items: [], meta: {} }));
     this.onOpenProject = onOpenProject || (() => {});
     this.onOpenLogs = onOpenLogs || (() => {});
     this.onClose = onClose || (() => {});
@@ -32,6 +33,9 @@ export class AutomationModal {
     this._savedSearch = '';
     this._logsByAutomation = new Map();
     this._loadingRunsFor = '';
+    this._savedTotalCount = Math.max(Number(totalCount) || 0, this._persistedItemsCount());
+    this._savedPageSize = Math.max(1, Number(pageSize) || 50);
+    this._loadingMoreSaved = false;
   }
 
   open() {
@@ -87,8 +91,12 @@ export class AutomationModal {
             placeholder="Search automation..."
             value="${escapeHtml(this._savedSearch)}"
           />
+          <div class="text-muted" style="font-size:12px; margin:8px 0;">${this._savedSummaryText()}</div>
           <div class="sb-auto__saved-list" id="sbAutoSavedList">
-            ${savedRows.length ? savedRows.map(({ item, idx }) => this._savedItemHTML(item, idx)).join('') : '<div class="text-muted" style="font-size:12px; padding:6px;">No matching automations.</div>'}
+            ${savedRows.length ? savedRows.map(({ item, idx }) => this._savedItemHTML(item, idx)).join('') : this._emptySavedStateHTML()}
+          </div>
+          <div style="display:flex; justify-content:center; margin-top:8px;">
+            <button class="btn btn-default btn-sm" type="button" id="sbAutoLoadMore" ${this._loadingMoreSaved || !this._hasMoreSavedItems() ? 'disabled' : ''} style="${this._hasMoreSavedItems() ? '' : 'display:none;'}">${this._loadingMoreSaved ? 'Loading...' : 'Load more'}</button>
           </div>
           <button class="btn btn-default btn-sm" type="button" id="sbAutoAdd">+ Add Automation</button>
         </div>
@@ -98,6 +106,9 @@ export class AutomationModal {
       </div>
     `;
     wrap.querySelector('#sbAutoAdd')?.addEventListener('click', () => this._addNew());
+    wrap.querySelector('#sbAutoLoadMore')?.addEventListener('click', async () => {
+      await this._handleLoadMoreSaved();
+    });
     wrap.querySelector('#sbAutoSavedSearch')?.addEventListener('input', (e) => {
       this._savedSearch = String(e?.target?.value || '');
       this._renderList();
@@ -126,6 +137,25 @@ export class AutomationModal {
         <span class="sb-auto__saved-state">${state}</span>
       </button>
     `;
+  }
+
+  _persistedItemsCount() {
+    return (this.items || []).filter((item) => String(item?.name || '').trim()).length;
+  }
+
+  _hasMoreSavedItems() {
+    return this._persistedItemsCount() < this._savedTotalCount;
+  }
+
+  _savedSummaryText() {
+    return `Showing ${this._persistedItemsCount()} of ${Math.max(this._persistedItemsCount(), this._savedTotalCount)} saved automations`;
+  }
+
+  _emptySavedStateHTML() {
+    if (this._savedSearch && this._hasMoreSavedItems()) {
+      return '<div class="text-muted" style="font-size:12px; padding:6px;">No matching loaded automations. Load more to keep searching.</div>';
+    }
+    return '<div class="text-muted" style="font-size:12px; padding:6px;">No matching automations.</div>';
   }
 
   _editorHTML() {
@@ -510,6 +540,7 @@ export class AutomationModal {
 
     if (item.name) {
       try { await this.onDelete(item.name); } catch (err) { return; }
+      this._savedTotalCount = Math.max(0, this._savedTotalCount - 1);
     }
     this.items.splice(idx, 1);
     if (this._activeIdx >= this.items.length) this._activeIdx = this.items.length - 1;
@@ -560,6 +591,7 @@ export class AutomationModal {
     btn.textContent = 'Saving…';
 
     try {
+      const prevName = String(item?.name || '').trim();
       const result = await this.onSave({
         name: itemNow?.name || '',
         enabled,
@@ -570,6 +602,7 @@ export class AutomationModal {
       });
 
       item.name = result?.name || item.name;
+      if (!prevName && String(item.name || '').trim()) this._savedTotalCount += 1;
       item.automation_name = String(result?.automation_name || automationName || '').trim();
       item.enabled = enabled;
       item.trigger_type = triggers[0]?.trigger_type || '';
@@ -728,6 +761,7 @@ export class AutomationModal {
         execution_count: Number(result?.execution_count || 0),
       };
       this.items.push(created);
+      if (String(created.name || '').trim()) this._savedTotalCount += 1;
       this._savedSearch = '';
       this._activeIdx = this.items.length - 1;
       this._renderList();
@@ -735,6 +769,36 @@ export class AutomationModal {
       this._saving = false;
       btn.disabled = false;
       btn.textContent = prevText;
+    }
+  }
+
+  async _handleLoadMoreSaved() {
+    if (this._loadingMoreSaved || !this._hasMoreSavedItems()) return;
+    this._loadingMoreSaved = true;
+    this._renderList();
+    try {
+      const res = await this.onLoadMore({
+        offset: this._persistedItemsCount(),
+        limit: this._savedPageSize,
+        search: '',
+      });
+      const nextItems = Array.isArray(res?.items) ? res.items : [];
+      const seen = new Set((this.items || []).map((item) => String(item?.name || '').trim()).filter(Boolean));
+      nextItems.forEach((item) => {
+        const name = String(item?.name || '').trim();
+        if (!name || seen.has(name)) return;
+        this.items.push({
+          ...item,
+          automation_name: String(item?.automation_name || '').trim(),
+          triggers: this._normalizeTriggers(item),
+          actions: Array.isArray(item.actions) ? [...item.actions] : [],
+        });
+        seen.add(name);
+      });
+      this._savedTotalCount = Math.max(Number(res?.meta?.total_count || 0) || 0, this._persistedItemsCount());
+    } finally {
+      this._loadingMoreSaved = false;
+      this._renderList();
     }
   }
 
