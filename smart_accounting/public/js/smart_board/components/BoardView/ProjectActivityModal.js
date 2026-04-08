@@ -52,11 +52,16 @@ export class ProjectActivityModal {
     this.onChanged = typeof onChanged === 'function' ? onChanged : (() => {});
     this._modal = null;
     this._listEl = null;
+    this._summaryEl = null;
+    this._loadMoreBtn = null;
     this._loading = false;
     this._undoing = false;
     this._savingComment = false;
     this._deletingComment = false;
     this._editingCommentName = '';
+    this._items = [];
+    this._totalCount = 0;
+    this._pageSize = 50;
   }
 
   open() {
@@ -65,7 +70,11 @@ export class ProjectActivityModal {
     content.innerHTML = `
       <div class="sb-project-activity">
         <div class="sb-project-activity__hint text-muted">Who changed which field and when.</div>
+        <div class="sb-project-activity__summary text-muted" id="sbProjectActivitySummary"></div>
         <div class="sb-project-activity__list" id="sbProjectActivityList"></div>
+        <div class="sb-project-activity__footer">
+          <button class="btn btn-default btn-sm" type="button" data-action="load-more-activity" id="sbProjectActivityLoadMore">Load more</button>
+        </div>
       </div>
     `;
 
@@ -75,11 +84,17 @@ export class ProjectActivityModal {
       onClose: () => this.onClose(),
     });
     this._modal.open();
+    this._summaryEl = content.querySelector('#sbProjectActivitySummary');
     this._listEl = content.querySelector('#sbProjectActivityList');
+    this._loadMoreBtn = content.querySelector('#sbProjectActivityLoadMore');
     content.addEventListener('click', (e) => {
       const btn = e.target?.closest?.('button[data-action]');
       if (!btn) return;
       const action = String(btn.dataset.action || '').trim();
+      if (action === 'load-more-activity') {
+        this._load({ append: true });
+        return;
+      }
       if (action === 'undo') {
         const activityName = btn.dataset.activityName;
         const expectedTo = btn.dataset.expectedTo || '';
@@ -88,12 +103,12 @@ export class ProjectActivityModal {
       }
       if (action === 'edit-comment') {
         this._editingCommentName = String(btn.dataset.commentName || '').trim();
-        this._load();
+        this._load({ append: false });
         return;
       }
       if (action === 'cancel-edit-comment') {
         this._editingCommentName = '';
-        this._load();
+        this._load({ append: false });
         return;
       }
       if (action === 'save-comment') {
@@ -104,33 +119,79 @@ export class ProjectActivityModal {
         this._deleteComment(btn.dataset.commentName);
       }
     });
-    this._load();
+    this._load({ append: false });
   }
 
   close() {
     this._modal?.close?.();
     this._modal = null;
     this._listEl = null;
+    this._summaryEl = null;
+    this._loadMoreBtn = null;
   }
 
-  async _load() {
+  async _load({ append = false } = {}) {
     if (!this._listEl || this._loading) return;
     this._loading = true;
-    this._listEl.innerHTML = `<div class="text-muted">Loading activity...</div>`;
+    if (!append) {
+      this._items = [];
+      this._totalCount = 0;
+      this._renderList({ loading: true });
+      this._renderFooter();
+    } else if (this._loadMoreBtn) {
+      this._loadMoreBtn.disabled = true;
+      this._loadMoreBtn.textContent = 'Loading...';
+    }
     try {
       const name = String(this.project?.name || '').trim();
-      const msg = await ProjectActivityService.getProjectActivity(name, { limit: 200 });
+      const limitStart = append ? this._items.length : 0;
+      const msg = await ProjectActivityService.getProjectActivity(name, { limitStart, limit: this._pageSize });
       const items = Array.isArray(msg?.items) ? msg.items : [];
-      if (!items.length) {
-        this._listEl.innerHTML = `<div class="text-muted">No activity yet.</div>`;
-        return;
-      }
-      this._listEl.innerHTML = items.map((it) => this._rowHTML(it)).join('');
+      this._totalCount = Number(msg?.meta?.total_count || items.length || 0);
+      this._items = append ? this._items.concat(items) : items;
+      this._renderList();
     } catch (e) {
-      this._listEl.innerHTML = `<div class="text-danger">Failed to load activity.</div>`;
+      if (append && this._items.length) {
+        notify(String(e?.message || 'Failed to load more activity.'), 'red');
+        this._renderList();
+      } else {
+        this._renderList({ error: true });
+      }
     } finally {
       this._loading = false;
+      this._renderFooter();
     }
+  }
+
+  _renderList({ loading = false, error = false } = {}) {
+    if (!this._listEl) return;
+    if (loading) {
+      this._listEl.innerHTML = `<div class="text-muted">Loading activity...</div>`;
+      if (this._summaryEl) this._summaryEl.textContent = '';
+      return;
+    }
+    if (error) {
+      this._listEl.innerHTML = `<div class="text-danger">Failed to load activity.</div>`;
+      if (this._summaryEl) this._summaryEl.textContent = '';
+      return;
+    }
+    if (!this._items.length) {
+      this._listEl.innerHTML = `<div class="text-muted">No activity yet.</div>`;
+      if (this._summaryEl) this._summaryEl.textContent = '0 items';
+      return;
+    }
+    this._listEl.innerHTML = this._items.map((it) => this._rowHTML(it)).join('');
+    if (this._summaryEl) {
+      this._summaryEl.textContent = `Showing ${this._items.length} of ${Math.max(this._items.length, this._totalCount)} items`;
+    }
+  }
+
+  _renderFooter() {
+    if (!this._loadMoreBtn) return;
+    const hasMore = this._items.length > 0 && this._items.length < this._totalCount;
+    this._loadMoreBtn.disabled = this._loading || !hasMore;
+    this._loadMoreBtn.style.display = hasMore ? '' : 'none';
+    this._loadMoreBtn.textContent = this._loading && hasMore ? 'Loading...' : 'Load more';
   }
 
   _rowHTML(it) {
@@ -211,7 +272,7 @@ export class ProjectActivityModal {
       await ProjectActivityService.undoProjectActivity(this.project?.name, name, expectedToValue);
       frappe.show_alert({ message: 'Undo completed.', indicator: 'green' });
       try { this.onChanged?.(); } catch (e) {}
-      await this._load();
+      await this._load({ append: false });
     } catch (e) {
       const msg = String(e?.message || 'Undo failed');
       frappe.show_alert({ message: msg, indicator: 'red' });
@@ -243,7 +304,7 @@ export class ProjectActivityModal {
       this._editingCommentName = '';
       notify('Updated.', 'green');
       try { this.onChanged?.(); } catch (e) {}
-      await this._load();
+      await this._load({ append: false });
     } catch (e) {
       notify(String(e?.message || 'Update failed'), 'red');
     } finally {
@@ -263,7 +324,7 @@ export class ProjectActivityModal {
         this._editingCommentName = this._editingCommentName === name ? '' : this._editingCommentName;
         notify('Deleted.', 'green');
         try { this.onChanged?.(); } catch (e) {}
-        await this._load();
+        await this._load({ append: false });
       }
     } catch (e) {
       notify(String(e?.message || 'Delete failed'), 'red');

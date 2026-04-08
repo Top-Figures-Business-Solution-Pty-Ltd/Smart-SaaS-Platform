@@ -26,6 +26,12 @@ export function initNotificationsShell({ buttonEl, popoverEl, badgeEl } = {}) {
   if (!btn || !pop) return null;
 
   let polling = null;
+  let listState = {
+    items: [],
+    totalCount: 0,
+    limit: 20,
+    loading: false,
+  };
   const onBtnClick = () => {
     // Toggle is handled outside (index.html). After it runs, if popover is open, refresh list.
     window.setTimeout(() => {
@@ -49,11 +55,11 @@ export function initNotificationsShell({ buttonEl, popoverEl, badgeEl } = {}) {
     } catch (e) {}
   };
 
-  const renderList = (items) => {
+  const renderList = (items, { loading = false } = {}) => {
     const list = Array.isArray(items) ? items : [];
     const body = pop.querySelector('#notificationsPopoverBody') || pop;
     if (!list.length) {
-      body.innerHTML = `<div class="text-muted">No notifications yet.</div>`;
+      body.innerHTML = `<div class="text-muted">${loading ? 'Loading notifications...' : 'No notifications yet.'}</div>`;
       return;
     }
     const rows = list.map((n) => {
@@ -73,19 +79,42 @@ export function initNotificationsShell({ buttonEl, popoverEl, badgeEl } = {}) {
         </div>
       `;
     }).join('');
-    body.innerHTML = `<div style="display:flex; flex-direction:column; gap:6px;">${rows}</div>
-      <div style="display:flex; justify-content:flex-end; margin-top:10px;">
+    const total = Math.max(list.length, Number(listState.totalCount) || 0);
+    const hasMore = list.length < total;
+    body.innerHTML = `
+      <div class="text-muted" style="font-size:12px; margin-bottom:8px;">Showing ${list.length} of ${total}</div>
+      <div style="display:flex; flex-direction:column; gap:6px;">${rows}</div>
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-top:10px; flex-wrap:wrap;">
+        <button class="btn btn-xs btn-default" type="button" id="btnNotifLoadMore" ${loading || !hasMore ? 'disabled' : ''} style="${hasMore ? '' : 'display:none;'}">${loading && hasMore ? 'Loading...' : 'Load more'}</button>
         <button class="btn btn-xs btn-default" type="button" id="btnNotifMarkAll">Mark all read</button>
       </div>`;
   };
 
-  const refreshList = async () => {
+  const refreshList = async ({ append = false } = {}) => {
     try {
-      const items = await NotificationsService.list({ limitStart: 0, limit: 20, unreadOnly: false });
-      renderList(items);
+      listState.loading = true;
+      if (!append) {
+        listState.items = [];
+        listState.totalCount = 0;
+        renderList([], { loading: true });
+      } else {
+        renderList(listState.items, { loading: true });
+      }
+      const limitStart = append ? listState.items.length : 0;
+      const res = await NotificationsService.list({ limitStart, limit: listState.limit, unreadOnly: false });
+      const nextItems = Array.isArray(res?.items) ? res.items : [];
+      listState.totalCount = Number(res?.meta?.total_count || nextItems.length || 0);
+      listState.items = append ? listState.items.concat(nextItems) : nextItems;
+      renderList(listState.items, { loading: false });
     } catch (e) {
       const body = pop.querySelector('#notificationsPopoverBody') || pop;
-      body.innerHTML = `<div class="text-danger">${escapeHtml(e?.message || 'Failed to load notifications')}</div>`;
+      if (append && listState.items.length) {
+        renderList(listState.items, { loading: false });
+      } else {
+        body.innerHTML = `<div class="text-danger">${escapeHtml(e?.message || 'Failed to load notifications')}</div>`;
+      }
+    } finally {
+      listState.loading = false;
     }
   };
 
@@ -106,6 +135,14 @@ export function initNotificationsShell({ buttonEl, popoverEl, badgeEl } = {}) {
       return;
     }
 
+    const loadMore = e.target?.closest?.('#btnNotifLoadMore');
+    if (loadMore) {
+      e.preventDefault();
+      if (listState.loading) return;
+      await refreshList({ append: true });
+      return;
+    }
+
     const row = e.target?.closest?.('.sb-notif');
     if (!row) return;
     const name = row.dataset.name;
@@ -113,6 +150,7 @@ export function initNotificationsShell({ buttonEl, popoverEl, badgeEl } = {}) {
     const docname = row.dataset.docname;
     try { await NotificationsService.markAsRead(name); } catch (err) {}
     await refreshBadge();
+    row.style.background = '';
 
     // Navigate: open updates modal for Project in Smart Board
     if (doctype === 'Project' && docname) {

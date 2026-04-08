@@ -921,6 +921,11 @@ button.sb-card:hover {
     margin-bottom: 10px;
 }
 
+.sb-project-activity__summary {
+    font-size: 12px;
+    margin-bottom: 8px;
+}
+
 .sb-project-activity__list {
     max-height: 420px;
     overflow: auto;
@@ -980,6 +985,12 @@ button.sb-card:hover {
     display: flex;
     justify-content: flex-end;
     margin-top: 6px;
+}
+
+.sb-project-activity__footer {
+    display: flex;
+    justify-content: center;
+    margin-top: 10px;
 }
 
 .sb-project-activity__source {

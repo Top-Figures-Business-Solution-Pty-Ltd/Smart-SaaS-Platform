@@ -11,7 +11,10 @@ export class NotificationsService {
         unread_only: unreadOnly ? 1 : 0,
       }
     });
-    return r?.message?.items || [];
+    return {
+      items: r?.message?.items || [],
+      meta: r?.message?.meta || {},
+    };
   }
 
   static async unreadCount() {

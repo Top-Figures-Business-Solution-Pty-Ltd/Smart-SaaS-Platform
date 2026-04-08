@@ -61,7 +61,16 @@ def get_my_notifications(limit_start: int = 0, limit_page_length: int = 20, unre
 		ignore_permissions=True,  # bounded by for_user filter
 	)
 
-	return {"items": rows or []}
+	total_count = frappe.db.count("Notification Log", filters=filters)
+
+	return {
+		"items": rows or [],
+		"meta": {
+			"total_count": int(total_count or 0),
+			"limit_start": limit_start,
+			"limit_page_length": limit_page_length,
+		},
+	}
 
 
 @frappe.whitelist()
