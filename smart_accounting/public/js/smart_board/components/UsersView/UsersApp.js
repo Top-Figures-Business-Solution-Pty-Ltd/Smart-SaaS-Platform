@@ -15,6 +15,8 @@ export class UsersApp {
       search: '',
       totalCount: 0,
       canManageUsers: false,
+      page: 1,
+      pageSize: 50,
     };
     this._bind = this._bind.bind(this);
     this._onClick = this._onClick.bind(this);
@@ -44,6 +46,7 @@ export class UsersApp {
     this._state.search = String(input.value || '');
     if (this._searchTimer) clearTimeout(this._searchTimer);
     this._searchTimer = setTimeout(() => {
+      this._state.page = 1;
       this._fetch({ reset: true });
     }, 180);
   }
@@ -71,6 +74,25 @@ export class UsersApp {
       const name = String(pwdBtn.getAttribute('data-name') || '').trim();
       const user = (this._state.items || []).find((x) => String(x?.name || '').trim() === name) || null;
       if (user) this._openPasswordModal(user);
+      return;
+    }
+
+    const prevBtn = e.target?.closest?.('[data-action="users-prev-page"]');
+    if (prevBtn) {
+      e.preventDefault();
+      if (this._state.loading || this._state.page <= 1) return;
+      this._state.page = Math.max(1, Number(this._state.page || 1) - 1);
+      this._fetch();
+      return;
+    }
+
+    const nextBtn = e.target?.closest?.('[data-action="users-next-page"]');
+    if (nextBtn) {
+      e.preventDefault();
+      const totalPages = this._totalPages();
+      if (this._state.loading || this._state.page >= totalPages) return;
+      this._state.page = Math.min(totalPages, Number(this._state.page || 1) + 1);
+      this._fetch();
     }
   }
 
@@ -81,12 +103,19 @@ export class UsersApp {
     try {
       const r = await UsersService.fetchUsers({
         search: this._state.search,
-        limitStart: 0,
-        limit: 200,
+        limitStart: (Math.max(1, Number(this._state.page) || 1) - 1) * this._state.pageSize,
+        limit: this._state.pageSize,
       });
       this._state.items = Array.isArray(r?.items) ? r.items : [];
       this._state.totalCount = Number(r?.meta?.total_count || this._state.items.length || 0);
       this._state.canManageUsers = !!(r?.meta?.can_manage_users ?? isAdminLike());
+      const totalPages = this._totalPages();
+      if (this._state.page > totalPages) {
+        this._state.page = totalPages;
+        if (!this._state.loading) return;
+        this._state.loading = false;
+        return this._fetch();
+      }
     } catch (e) {
       this._state.error = e?.message || String(e);
       if (reset) this._state.items = [];
@@ -96,6 +125,19 @@ export class UsersApp {
       this._state.loading = false;
       this.render();
     }
+  }
+
+  _totalPages() {
+    return Math.max(1, Math.ceil((Number(this._state.totalCount) || 0) / Math.max(1, Number(this._state.pageSize) || 1)));
+  }
+
+  _summaryText() {
+    const total = Number(this._state.totalCount) || 0;
+    if (!total) return '0 users';
+    const page = Math.max(1, Number(this._state.page) || 1);
+    const start = (page - 1) * this._state.pageSize + 1;
+    const end = Math.min(total, start + Math.max(0, (Number(this._state.items?.length) || 0) - 1));
+    return `${start}-${end} of ${total} users`;
   }
 
   async _openCreateUserModal() {
@@ -151,6 +193,8 @@ export class UsersApp {
 
   render() {
     const { items, loading, error, search, totalCount, canManageUsers } = this._state;
+    const totalPages = this._totalPages();
+    const currentPage = Math.min(Math.max(1, Number(this._state.page || 1)), totalPages);
     const rows = (items || []).map((user) => {
       const fullName = escapeHtml(user?.full_name || user?.name || 'Unknown User');
       const email = escapeHtml(user?.email || user?.name || '');
@@ -199,7 +243,7 @@ export class UsersApp {
               value="${escapeHtml(search)}"
               style="max-width:320px;"
             />
-            <div class="text-muted" style="font-size:13px;">${loading ? 'Loading users...' : `${totalCount} users`}</div>
+            <div class="text-muted" style="font-size:13px;">${loading ? 'Loading users...' : this._summaryText()}</div>
           </div>
           ${canManageUsers ? `<button class="btn btn-primary" id="sbUsersCreate" type="button">New User</button>` : ''}
         </div>
@@ -220,6 +264,24 @@ export class UsersApp {
               ${rows || `<tr><td colspan="4" class="text-muted" style="text-align:center;padding:24px;">${loading ? 'Loading...' : 'No users found.'}</td></tr>`}
             </tbody>
           </table>
+        </div>
+
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-top:12px;">
+          <div class="text-muted" style="font-size:13px;">${loading ? 'Refreshing...' : `Page ${currentPage} / ${totalPages}`}</div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <button
+              class="btn btn-default btn-sm"
+              type="button"
+              data-action="users-prev-page"
+              ${loading || currentPage <= 1 ? 'disabled' : ''}
+            >Previous</button>
+            <button
+              class="btn btn-default btn-sm"
+              type="button"
+              data-action="users-next-page"
+              ${loading || currentPage >= totalPages || totalCount === 0 ? 'disabled' : ''}
+            >Next</button>
+          </div>
         </div>
       </div>
     `;
