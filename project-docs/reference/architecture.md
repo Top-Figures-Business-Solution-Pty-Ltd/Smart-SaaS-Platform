@@ -9,6 +9,23 @@
 
 ---
 
+## 2026-04 当前状态补充
+
+### 当前新增的治理方向
+
+- ✅ **文档管理已开始收口到统一入口**
+  - 项目文档总入口现为 `../project-docs/README.md`
+- ✅ **R&D Notes 已建立**
+  - 后续每周的研发记录、验证记录、操作性支持材料统一进入 `../project-docs/r-and-d-notes/`
+- ✅ **长期参考文档与工作型记录已开始分层**
+  - `docs/` 继续保留设计/架构/实施参考
+  - `project-docs/` 负责统一入口、索引、周更与工作型记录
+
+### 当前建议
+
+- 稳定设计与架构边界，继续保留在 `docs/`
+- 周更、验证、调查、支持性记录，不再继续散落，统一进入 `project-docs/`
+
 ## 1) 目标 / 非目标
 
 ### 目标
@@ -307,10 +324,10 @@ components/pages  →  controllers  →  services  →  backend(api/*)
 
 ## 11) 参考文档
 
-- `docs/A_Data_Model_Assessment.md`
-- `docs/B_Code_Architecture_Review.md`
-- `docs/C_Business_Process_Flows.md`
-- `docs/D_UI_Design.md`
-- `docs/E_Implementation_Tutorial.md`
+- `project-docs/reference/A_Data_Model_Assessment.md`
+- `project-docs/reference/B_Code_Architecture_Review.md`
+- `project-docs/reference/C_Business_Process_Flows.md`
+- `project-docs/reference/D_UI_Design.md`
+- `project-docs/reference/E_Implementation_Tutorial.md`
 
 

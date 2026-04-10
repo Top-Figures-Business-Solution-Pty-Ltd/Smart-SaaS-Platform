@@ -8,6 +8,26 @@
 
 ---
 
+## 2026-04 当前状态补充
+
+### 架构与产品层近期变化
+
+- ✅ **Smart Accounting / Smart Grants 的并行使用路径已进一步确认**
+  - 近期工作重点之一是确认分离后的结构能够长期内部使用，并在实际操作中继续演进。
+- ✅ **系统稳定性与日常运维已持续进行**
+  - 包括日常 debug、数据备份测试、VM checkpoint 整理与测试。
+- ✅ **系统级分页治理已完成一轮收口**
+  - Users、Project Activity、Notifications、Dashboard、Client/Status Projects、Global Activity Log、Automations、Saved Views、Automation Logs 均已按当前产品需要补齐或强化。
+- ✅ **文档治理开始进入体系化管理**
+  - 项目文档入口与 R&D Notes 已单独建立，后续周更与验证记录将进入统一文档体系，而不是继续散落。
+
+### 当前建议
+
+- 本文档继续保留为**架构演进参考**。
+- 与每周工作、验证、操作性维护更相关的内容，请转到：
+  - `../project-docs/r-and-d-notes/`
+  - `../project-docs/document-map.md`
+
 ## 文档目的
 
 > 本文档是 Smart Accounting 项目的**代码架构重构规划文档**。
@@ -359,8 +379,8 @@ smart_board/
 
 ### A. 相关文档
 
-- `docs/A_Data_Model_Assessment.md` - 数据模型评估
-- `docs/C_Business_Process_Flows.md` - 业务流程文档
+- `project-docs/reference/A_Data_Model_Assessment.md` - 数据模型评估
+- `project-docs/reference/C_Business_Process_Flows.md` - 业务流程文档
 
 ### B. 修订历史
 

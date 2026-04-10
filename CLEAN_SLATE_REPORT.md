@@ -176,7 +176,7 @@ app_version = "2.0.0"
 **Phase 6**: 创建 Saved View DocType  
 **Phase 7**: 配置 Select 选项  
 
-详见：`docs/E_Implementation_Tutorial.md` v2.0
+详见：`project-docs/reference/E_Implementation_Tutorial.md` v2.0
 
 ---
 

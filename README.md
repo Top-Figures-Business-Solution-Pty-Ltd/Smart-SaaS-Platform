@@ -48,11 +48,18 @@ Smart Accounting 是一个专为会计事务所设计的 SaaS 项目管理平台
 
 ## 📚 文档
 
+### 文档总入口
+
+- **Project Documentation Hub**: [统一文档入口](project-docs/README.md)
+- **Document Map**: [项目文档索引](project-docs/document-map.md)
+- **Reference Library**: [参考文档分组](project-docs/reference-library.md)
+- **R&D Notes**: [研发记录入口](project-docs/r-and-d-notes/README.md)
+
 ### 设计文档
 
-- **Document A**: [数据模型设计](docs/A_Data_Model_Assessment.md) - v8.2
-- **Document D**: [UI 设计](docs/D_UI_Design.md)
-- **Document E**: [实施教程](docs/E_Implementation_Tutorial.md)
+- **Document A**: [数据模型设计](project-docs/reference/A_Data_Model_Assessment.md) - v8.2
+- **Document D**: [UI 设计](project-docs/reference/D_UI_Design.md)
+- **Document E**: [实施教程](project-docs/reference/E_Implementation_Tutorial.md)
 
 ### 快速开始
 

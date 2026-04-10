@@ -8,6 +8,24 @@
 
 ---
 
+## 2026-04 当前状态补充
+
+### 近期已完成的实现项
+
+- ✅ `New Project` 的 `Fiscal Year` 和 `Frequency` 自动预填已进入当前实现
+- ✅ Client 创建流程已支持 `Partner` 输入，并会在后续新建 Project 时自动承接
+- ✅ Users 页面已补充 admin-only 的新增、移除和状态查看能力
+- ✅ Smart Grants 缺失字段与列已补齐
+- ✅ Updates 页面分页与系统级分页补强已完成
+- ✅ Automation Logs 已升级为正式分页导航，更适合长期检索
+
+### 文档使用建议
+
+- 本文档继续保留为**实施 / 配置参考**。
+- 如果需要查看最近真实落地了哪些功能、何时完成、如何验证，请优先查看：
+  - `../project-docs/r-and-d-notes/`
+  - `../project-docs/document-map.md`
+
 ## 2026-03 重要校正（优先于旧步骤）
 
 > 本文档保留了若干早期实施记录；如果与当前代码不一致，请以本节为准。
@@ -1119,8 +1137,8 @@ bench restart
 
 | 文档 | 说明 |
 |------|------|
-| `docs/A_Data_Model_Assessment.md` | 数据模型设计（字段详细定义）|
-| `docs/D_UI_Design.md` | UI 设计文档 |
+| `project-docs/reference/A_Data_Model_Assessment.md` | 数据模型设计（字段详细定义）|
+| `project-docs/reference/D_UI_Design.md` | UI 设计文档 |
 
 ### B. 修订历史
 

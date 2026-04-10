@@ -8,6 +8,27 @@
 
 ---
 
+## 2026-04 当前状态补充
+
+### 近期 UI / UX 已落地更新
+
+- ✅ **开始了一轮系统性 UI 优化**
+  - 重点包括界面一致性、视觉清理、交互体验和日常使用观感优化。
+- ✅ **过于 AI 化的 emoji / icon 已开始替换为更专业的按钮和图标风格**
+  - 导航和关键交互区已按更平滑、专业的产品视觉方向调整。
+- ✅ **Updates 页面分页已完成**
+  - 超过十条的更新会切换到后续页，减少长列表阅读压力。
+- ✅ **系统级分页体验已全面加强**
+  - Users、Notifications、Dashboard、Client/Status Projects、Global Activity Log、Automations、Automation Logs 等页面已按实际数据增长风险补强分页或分页导航。
+- ✅ **Automation Logs 已从单纯 Load more 升级为可跳页分页**
+  - 现在支持标准分页导航，更适合长期使用后的历史记录检索。
+
+### 文档定位提醒
+
+- 本文档继续作为**UI 设计与设计决策参考**。
+- 对于每周实际做了哪些 UI 调整、为什么改、怎么验证，后续建议统一记录到：
+  - `../project-docs/r-and-d-notes/`
+
 ## 目录
 
 1. [设计目标](#1-设计目标)
@@ -396,9 +417,9 @@
 
 | 文档 | 说明 |
 |------|------|
-| `docs/A_Data_Model_Assessment.md` | 数据模型设计 |
-| `docs/B_Code_Architecture_Review.md` | 代码架构设计 |
-| `docs/C_Business_Process_Flows.md` | 业务流程文档 |
+| `project-docs/reference/A_Data_Model_Assessment.md` | 数据模型设计 |
+| `project-docs/reference/B_Code_Architecture_Review.md` | 代码架构设计 |
+| `project-docs/reference/C_Business_Process_Flows.md` | 业务流程文档 |
 
 ### B. 参考截图
 

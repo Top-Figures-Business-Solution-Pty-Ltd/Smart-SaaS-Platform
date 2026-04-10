@@ -10,6 +10,27 @@
 
 ---
 
+## 2026-04 当前状态补充
+
+### 近期已落地的数据模型相关变化
+
+- ✅ **Smart Grants 已进入实际使用与导入阶段**
+  - 当前项目结构已不仅是设计验证，Smart Grants 数据已开始导入并成功进入系统使用流程。
+- ✅ **Client → Project 的 Partner 自动承接已落地**
+  - 创建 Client 时可记录 Partner，后续基于该 Client 创建的 Project 会自动带出对应 Partner。
+- ✅ **New Project 的 Fiscal Year / Frequency 自动预填已落地**
+  - 创建 Project 时的默认值逻辑已经进入实际使用，减少重复输入。
+- ✅ **Smart Grants 缺失字段已补齐**
+  - Project / Smart Grants board 已补回缺失的三列字段，并进入当前使用结构。
+- ✅ **Users 管理能力已增强**
+  - Admin-only 的用户新增、移除、状态查看与访问管理已进入当前产品能力范围。
+
+### 文档使用建议
+
+- 本文档继续作为**数据结构与字段设计参考**保留。
+- 每周新增的实施、验证、导入、核对记录，不再直接堆到本文件，统一进入：
+  - `../project-docs/r-and-d-notes/`
+
 ## 更新日志 (v8.4 - 2026-03-10)
 
 ### 🎯 当前实现对齐（文档校正）
@@ -1226,11 +1247,11 @@ Task 列表：
 
 | 文档 | 说明 |
 |------|------|
-| `docs/A_Data_Model_Assessment.md` | 新数据模型重构规划（本文档）|
-| `docs/B_Code_Architecture_Review.md` | 代码架构重构规划 |
-| `docs/C_Business_Process_Flows.md` | 业务流程文档 |
-| `docs/D_UI_Design.md` | UI 设计文档 🎨 |
-| `docs/E_Implementation_Tutorial.md` | **实施教程** 🔧 |
+| `project-docs/reference/A_Data_Model_Assessment.md` | 新数据模型重构规划（本文档）|
+| `project-docs/reference/B_Code_Architecture_Review.md` | 代码架构重构规划 |
+| `project-docs/reference/C_Business_Process_Flows.md` | 业务流程文档 |
+| `project-docs/reference/D_UI_Design.md` | UI 设计文档 🎨 |
+| `project-docs/reference/E_Implementation_Tutorial.md` | **实施教程** 🔧 |
 
 ### B. 修订历史
 

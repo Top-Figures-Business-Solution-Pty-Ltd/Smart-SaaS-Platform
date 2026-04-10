@@ -1,5 +1,10 @@
 # Smart Board - UI 组件架构
 
+> 当前这份文档属于前端实现参考。若需要统一查看项目文档入口，请先看：
+> - `../../../../project-docs/README.md`
+> - `../../../../project-docs/reference-library.md`
+> - `../../../../project-docs/document-map.md`
+
 ## 📁 目录结构
 
 ```
@@ -202,9 +207,9 @@ app_include_css = [
 - 清晰的视觉反馈
 
 ## 📚 相关文档
-- [数据模型设计](../../docs/A_Data_Model_Assessment.md)
-- [UI设计文档](../../docs/D_UI_Design.md)
-- [实施教程](../../docs/E_Implementation_Tutorial.md)
+- [数据模型设计](../../../../project-docs/reference/A_Data_Model_Assessment.md)
+- [UI设计文档](../../../../project-docs/reference/D_UI_Design.md)
+- [实施教程](../../../../project-docs/reference/E_Implementation_Tutorial.md)
 
 ## 🔍 技术栈
 - **前端**: 原生JavaScript（ES6+）
