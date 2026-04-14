@@ -320,6 +320,21 @@ components/pages  →  controllers  →  services  →  backend(api/*)
 - **虚拟滚动/分页**：大表格必须使用（`BoardTableVirtualization` 等）。
 - **Perf 埋点**：使用 `utils/perf.js` 的 `Perf.timeAsync()` 包裹关键路径。
 
+## 10.1 Sort 能力边界（2026-04）
+
+- **不要把“可见列”直接等同于“可排序列”**
+- 当前产品口径：Sort 仅开放 **常用且 SQL-safe** 的 Project 字段
+- 典型可排序字段：`project_name`、`customer`、`project_type`、`status`、`company`、`expected_end_date`、`custom_lodgement_due_date`、`custom_fiscal_year`、`custom_year_end`、`modified`
+- 典型**不应直接排序**的字段：
+  - 子表 / Table MultiSelect / hydrate 后字段（例如 `custom_softwares`、`custom_team_members`）
+  - 虚拟列 / 聚合列（例如 `__sb_*`、team role columns）
+  - 附件 / 仅展示型列（如 Engagement Letter）
+- 未来如果要增强 Sort，不建议继续走“所有显示列都能排序”的路线，而应把字段能力显式拆成：
+  - `visible`
+  - `filterable`
+  - `sortable`
+  - `editable`
+
 ---
 
 ## 11) 参考文档

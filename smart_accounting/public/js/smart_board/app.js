@@ -7,7 +7,7 @@ import { Sidebar } from './components/Layout/Sidebar.js';
 import { Header } from './components/Layout/Header.js';
 import { MainContent } from './components/Layout/MainContent.js';
 import { Modal } from './components/Common/Modal.js';
-import { PROJECT_TYPE_ICONS, DEFAULT_PROJECT_TYPE_ICON, DEFAULT_COLUMNS } from './utils/constants.js';
+import { PROJECT_TYPE_ICONS, DEFAULT_PROJECT_TYPE_ICON, DEFAULT_COLUMNS, isSortableProjectField } from './utils/constants.js';
 import { Store } from './store/store.js';
 import { ProjectTypeService } from './services/projectTypeService.js';
 import * as ViewTypes from './utils/viewTypes.js';
@@ -339,9 +339,10 @@ export class SmartBoardApp {
                 merged.first_column = firstProjectColumn;
                 const rawSortBy = String(viewFiltersPayload?.ui?.sort_field || '').trim();
                 const rawSortOrder = String(viewFiltersPayload?.ui?.sort_order || '').trim().toLowerCase();
+                const safeSortBy = isSortableProjectField(rawSortBy) ? rawSortBy : '';
                 const isAdhoc = /ad[\s-]?hoc/i.test(String(viewType || '').trim());
-                if (rawSortBy) {
-                    merged.sort_field = rawSortBy;
+                if (safeSortBy) {
+                    merged.sort_field = safeSortBy;
                     merged.sort_order = rawSortOrder === 'desc' ? 'desc' : 'asc';
                 } else if (isAdhoc) {
                     merged.sort_field = 'creation';
@@ -349,6 +350,16 @@ export class SmartBoardApp {
                 } else {
                     merged.sort_field = null;
                     merged.sort_order = null;
+                }
+                if (rawSortBy && !safeSortBy && view?.name) {
+                    try {
+                        const sanitizedPayload = ViewService.normalizeFilters(view?.filters);
+                        sanitizedPayload.ui = { ...(sanitizedPayload.ui || {}) };
+                        delete sanitizedPayload.ui.sort_field;
+                        delete sanitizedPayload.ui.sort_order;
+                        await ViewService.updateView(view.name, { filters: sanitizedPayload });
+                        if (view) view.filters = sanitizedPayload;
+                    } catch (e) {}
                 }
                 try {
                     const currentFilters = this.store?.getState?.()?.filters || {};
@@ -727,8 +738,12 @@ export class SmartBoardApp {
     }
 
     async applySort({ field, order } = {}) {
-        const sortField = String(field || '').trim() || null;
+        const requestedField = String(field || '').trim();
+        const sortField = requestedField && isSortableProjectField(requestedField) ? requestedField : null;
         const sortOrder = sortField ? (String(order || 'asc').trim().toLowerCase() === 'desc' ? 'desc' : 'asc') : null;
+        if (requestedField && !sortField) {
+            notify('This column cannot be used for sorting.', 'orange');
+        }
         await this.store?.dispatch?.('filters/setSort', { field: sortField, order: sortOrder });
         if (this.isBoardView(this.currentView)) {
             try {

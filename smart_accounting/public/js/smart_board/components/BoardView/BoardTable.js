@@ -3,7 +3,7 @@
  * 类Monday.com的表格视图组件
  */
 
-import { DEFAULT_COLUMNS, PROJECT_COLUMN_CATALOG } from '../../utils/constants.js';
+import { DEFAULT_COLUMNS, PROJECT_COLUMN_CATALOG, isSortableProjectField } from '../../utils/constants.js';
 import { renderColGroup, renderHeaderCells, renderRows } from './boardTableRender.js';
 import { initResizable } from './boardTableResize.js';
 import { loadColumnWidths, saveColumnWidths } from './boardTableStorage.js';
@@ -1383,7 +1383,7 @@ export class BoardTable {
             .filter((c) => c && c.sortable !== false)
             .filter((c) => {
                 const f = String(c?.field || '').trim();
-                return f && !f.startsWith('__sb_') && !f.startsWith('team:');
+                return f && !f.startsWith('__sb_') && !f.startsWith('team:') && isSortableProjectField(f);
             })
             .map((c) => ({ value: String(c.field || '').trim(), label: String(c.label || c.field || '').trim() }));
         const creationOpt = { value: 'creation', label: 'Created Time' };

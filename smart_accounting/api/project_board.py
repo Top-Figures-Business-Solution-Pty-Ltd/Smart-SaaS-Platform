@@ -97,6 +97,71 @@ def _sanitize_project_list_fields(fields: Any) -> list[str]:
 	return req_fields
 
 
+_SORTABLE_PROJECT_FIELDS = {
+	"name",
+	"creation",
+	"modified",
+	"project_name",
+	"customer",
+	"project_type",
+	"company",
+	"status",
+	"priority",
+	"expected_end_date",
+	"custom_lodgement_due_date",
+	"custom_project_frequency",
+	"custom_target_month",
+	"custom_fiscal_year",
+	"custom_year_end",
+	"custom_grants_fy_label",
+	"custom_grants_deliverer",
+	"custom_grants_state",
+	"custom_grants_industry_category",
+	"custom_grants_partner_label",
+	"custom_grants_owner_name",
+	"custom_grants_status",
+	"custom_ap_submit_date",
+	"custom_industry_approval_date",
+	"custom_tax_lodgement_date",
+	"custom_reset_date",
+	"custom_ato_status",
+	"custom_lodgeit_status",
+	"custom_company_agent_status",
+	"custom_xeroquickbooks_status",
+	"estimated_costing",
+}
+
+
+def _sanitize_project_order_by(order_by: Any) -> str:
+	default = "project_name asc, name asc"
+	raw = str(order_by or "").strip()
+	if not raw:
+		return default
+
+	try:
+		first = str(raw.split(",")[0] or "").strip()
+		if not first:
+			return default
+		parts = first.split()
+		field = str(parts[0] or "").strip()
+		direction = str(parts[1] or "asc").strip().lower() if len(parts) > 1 else "asc"
+		if direction not in {"asc", "desc"}:
+			direction = "asc"
+		aliases = {
+			"customer_name": "customer",
+			"client": "customer",
+			"client_name": "customer",
+		}
+		field = aliases.get(field, field)
+		if field not in _SORTABLE_PROJECT_FIELDS:
+			return default
+		if field == "name":
+			return f"name {direction}"
+		return f"{field} {direction}, name asc"
+	except Exception:
+		return default
+
+
 def _enrich_project_rows(rows: list[dict], requested_fields: list[str] | None = None) -> list[dict]:
 	out = list(rows or [])
 	req_fields = [str(x).strip() for x in (requested_fields or []) if str(x).strip()]
@@ -557,6 +622,7 @@ def get_projects_list(
 	req_fields = _sanitize_project_list_fields(fields)
 	req_filters = filters if isinstance(filters, (list, dict)) else []
 	req_or_filters = _normalize_list(or_filters)
+	safe_order_by = _sanitize_project_order_by(order_by)
 
 	try:
 		limit_start = int(limit_start or 0)
@@ -575,7 +641,7 @@ def get_projects_list(
 			fields=req_fields or ["name"],
 			filters=req_filters,
 			or_filters=req_or_filters,
-			order_by=str(order_by or "project_name asc, name asc"),
+			order_by=safe_order_by,
 			limit_start=limit_start,
 			limit_page_length=limit_page_length,
 		)

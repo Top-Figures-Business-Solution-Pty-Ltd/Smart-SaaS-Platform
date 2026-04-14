@@ -7,6 +7,7 @@
 import { ApiService } from './api.js';
 import { Perf } from '../utils/perf.js';
 import { DoctypeMetaService } from './doctypeMetaService.js';
+import { isSortableProjectField } from '../utils/constants.js';
 
 export class ProjectQueryService {
   static _warnedMissingFields = false;
@@ -52,6 +53,7 @@ export class ProjectQueryService {
     }
     if (field === 'project_name') return `project_name ${order}, name ${order}`;
     if (!/^[a-zA-Z0-9_]+$/.test(fieldRaw)) return '';
+    if (!isSortableProjectField(fieldRaw)) return '';
     return `${fieldRaw} ${order}, name asc`;
   }
 

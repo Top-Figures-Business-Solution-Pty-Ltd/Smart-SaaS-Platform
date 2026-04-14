@@ -187,6 +187,48 @@ export const PROJECT_COLUMN_CATALOG = [
     { field: 'modified', label: 'Last Updated', width: 150 }
 ];
 
+// Sort capability boundary:
+// - Sort should only expose SQL-safe Project columns that are genuinely useful to end users.
+// - Do NOT treat every visible/display column as sortable. Hydrated/child-table/attachment-style
+//   fields such as custom_softwares may render fine in the board but are not safe ORDER BY targets.
+export const SORTABLE_PROJECT_FIELDS = new Set([
+    'creation',
+    'project_name',
+    'customer',
+    'project_type',
+    'company',
+    'status',
+    'priority',
+    'expected_end_date',
+    'custom_lodgement_due_date',
+    'custom_project_frequency',
+    'custom_target_month',
+    'custom_fiscal_year',
+    'custom_year_end',
+    'custom_grants_fy_label',
+    'custom_grants_deliverer',
+    'custom_grants_state',
+    'custom_grants_industry_category',
+    'custom_grants_partner_label',
+    'custom_grants_owner_name',
+    'custom_grants_status',
+    'custom_ap_submit_date',
+    'custom_industry_approval_date',
+    'custom_tax_lodgement_date',
+    'custom_reset_date',
+    'custom_ato_status',
+    'custom_lodgeit_status',
+    'custom_company_agent_status',
+    'custom_xeroquickbooks_status',
+    'estimated_costing',
+    'modified',
+]);
+
+export function isSortableProjectField(field) {
+    const f = String(field || '').trim();
+    return !!f && SORTABLE_PROJECT_FIELDS.has(f);
+}
+
 // 默认列配置（按 project_type）
 export const DEFAULT_COLUMNS = {
     'ITR': [
