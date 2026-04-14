@@ -526,6 +526,7 @@ class CustomProject(Project):
         target_field = "custom_lodgement_due_date"
 
         freq = str(getattr(self, "custom_project_frequency", "") or "").strip()
+        project_type = str(getattr(self, "project_type", "") or "").strip()
         current_date = getattr(self, target_field, None)
 
         if not freq or freq in ("One-off", "One off", ""):
@@ -534,7 +535,19 @@ class CustomProject(Project):
                 return
 
         current_date = getdate(current_date)
-        new_date = _roll_date_by_frequency(current_date, freq)
+        quarterly_due = _resolve_special_quarterly_bas_ias_due_date(
+            current_date=current_date,
+            project_type=project_type,
+            frequency=freq,
+        )
+        if quarterly_due is not None:
+            new_date, limit_message = quarterly_due
+            if limit_message:
+                self._record_automation_note("roll_due_date", limit_message)
+                _show_quarterly_rollover_limit_message(limit_message)
+                return
+        else:
+            new_date = _roll_date_by_frequency(current_date, freq)
 
         if new_date and new_date != current_date:
             self.set(target_field, new_date)
@@ -1065,6 +1078,61 @@ def _roll_date_by_frequency(current_date, frequency: str):
         return get_last_day(nd) if is_eom else nd
 
     return None
+
+
+_QUARTERLY_BAS_IAS_Q3_DUE = getdate("2026-05-26")
+_QUARTERLY_BAS_IAS_Q4_DUE = getdate("2026-08-25")
+
+
+def _is_quarterly_bas_ias_project(project_type: str, frequency: str) -> bool:
+    pt = str(project_type or "").strip().lower()
+    freq = str(frequency or "").strip().lower()
+    return pt in {"bas", "ias"} and freq == "quarterly"
+
+
+def _resolve_special_quarterly_bas_ias_due_date(*, current_date, project_type: str, frequency: str):
+    """
+    Phase-1 special rule for quarterly BAS/IAS only.
+
+    Behavior:
+    - before Q3 due date -> roll to Q3 due date
+    - Q3 due date <= current < Q4 due date -> roll to Q4 due date
+    - current >= Q4 due date -> do not roll; surface a user-facing message
+
+    Returns:
+    - None when the project should use generic frequency rollover
+    - (new_date, limit_message) for quarterly BAS/IAS
+      - limit_message is non-empty when rollover must stop at FY 2025-26 Q4
+    """
+    if not _is_quarterly_bas_ias_project(project_type, frequency):
+        return None
+
+    d = getdate(current_date)
+    if d < _QUARTERLY_BAS_IAS_Q3_DUE:
+        return _QUARTERLY_BAS_IAS_Q3_DUE, ""
+    if d < _QUARTERLY_BAS_IAS_Q4_DUE:
+        return _QUARTERLY_BAS_IAS_Q4_DUE, ""
+    return None, (
+        "The current quarterly rollover rule cannot go beyond FY 2025-26 Quarter 4 "
+        f"({_QUARTERLY_BAS_IAS_Q4_DUE.strftime('%d %B %Y')})."
+    )
+
+
+def _show_quarterly_rollover_limit_message(message: str) -> None:
+    msg = str(message or "").strip()
+    if not msg:
+        return
+    try:
+        shown = getattr(frappe.flags, "sb_quarterly_due_limit_messages", None)
+        if not isinstance(shown, set):
+            shown = set()
+            frappe.flags.sb_quarterly_due_limit_messages = shown
+        if msg in shown:
+            return
+        shown.add(msg)
+        frappe.msgprint(msg, title="Quarterly rollover limit", indicator="orange")
+    except Exception:
+        pass
 
 
 def _target_month_step_by_frequency(frequency: str) -> int:

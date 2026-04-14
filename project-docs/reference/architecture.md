@@ -311,6 +311,31 @@ components/pages  →  controllers  →  services  →  backend(api/*)
 - 日期触发执行路径：
   - `hooks.py -> scheduler_events.daily -> api.automation.run_due_date_automations_daily`
 
+## 9.2 Quarterly BAS / IAS due date rule（2026-04 phase 1）
+
+- 当前 `Roll Lodgement Due forward by frequency` action 保持原有 UI 和命名不变
+- 运行时增加一个**仅对 `project_type in {BAS, IAS}` 且 `frequency = Quarterly` 生效**的特殊分支
+- 第一阶段规则只内置两个季度锚点：
+  - Q3: `26 May 2026`
+  - Q4: `25 August 2026`
+- 当前行为：
+  - 当前 due date `< Q3` -> rollover 到 `Q3`
+  - `Q3 <= 当前 due date < Q4` -> rollover 到 `Q4`
+  - `>= Q4` -> 不再 rollover，并向当前用户显示英文提示
+- 这是一个**阶段性业务规则**，目的是先快速覆盖 quarterly BAS / IAS 的特殊日期
+
+## 9.3 Quarterly rule future upgrade path
+
+- 未来不建议长期把季度规则永久硬编码在 action 内部
+- 更推荐的升级方向：
+  - 保留当前 automation action 名称不变
+  - 将季度规则提取为独立 resolver / rule provider
+  - 先读 admin-level 配置
+  - 无配置时回退到系统默认规则
+- 如果未来扩展更多财年 / 更多 quarter，不应继续依赖“当前 due date 猜下一次”，而应逐步转向：
+  - period-driven lookup
+  - year / quarter keyed rule table
+
 ---
 
 ## 10) 性能与可观测性（建议）
