@@ -16,10 +16,13 @@ export class SettingsApp {
 
   init() {
     const showDebug = this._isDebugEnabled() && this._isProbablyAdmin();
+    const showQuarterlyRules = this._isProbablyAdmin();
     if (!showDebug && this._active === 'debug') this._active = 'profile';
+    if (!showQuarterlyRules && this._active === 'quarterly-rules') this._active = 'profile';
     const isProfile = this._active === 'profile';
     const isPassword = this._active === 'password';
     const isDebug = this._active === 'debug';
+    const isQuarterlyRules = this._active === 'quarterly-rules';
     this.container.innerHTML = `
       <div class="sb-page">
         <div class="sb-settings">
@@ -28,6 +31,7 @@ export class SettingsApp {
             <button class="sb-settings__tab ${isPassword ? 'sb-settings__tab--active' : ''}" type="button" data-key="password">Change Password</button>
             <button class="sb-settings__tab" type="button" data-key="prefs" disabled title="Coming soon">Personal Preferences</button>
             <button class="sb-settings__tab" type="button" data-key="notifs" disabled title="Coming soon">Notification Preferences</button>
+            ${showQuarterlyRules ? `<button class="sb-settings__tab ${isQuarterlyRules ? 'sb-settings__tab--active' : ''}" type="button" data-key="quarterly-rules">Quarterly Due Date Rules</button>` : ''}
             ${showDebug ? `<button class="sb-settings__tab ${isDebug ? 'sb-settings__tab--active' : ''}" type="button" data-key="debug">Debug Tools</button>` : ''}
           </div>
           <div class="sb-settings__content" id="sbSettingsContent"></div>
@@ -77,6 +81,21 @@ export class SettingsApp {
     if (this._active === 'debug') {
       this._form = new ProjectEntitySyncTools(mount);
       this._form.render();
+      return;
+    }
+    if (this._active === 'quarterly-rules') {
+      mount.innerHTML = `
+        <div class="sb-cardlike">
+          <div class="sb-cardlike__title">Quarterly Due Date Rules</div>
+          <div class="sb-settings__hint-badge">In development</div>
+          <p class="text-muted" style="margin-top:12px;">
+            Future versions will allow administrators to maintain BAS and IAS quarterly lodgement due dates by fiscal year from this section.
+          </p>
+          <p class="text-muted" style="margin-top:8px;">
+            For now, the quarterly rollover rule uses the current built-in FY 2025-26 Q3/Q4 due date guard in automation.
+          </p>
+        </div>
+      `;
       return;
     }
     // Password (fallback)

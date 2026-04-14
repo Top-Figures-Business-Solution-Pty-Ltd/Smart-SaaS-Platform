@@ -30,6 +30,9 @@ export function renderHeaderCells(columns, sortState = {}) {
            </div>`
         : `<div class="cell-content">
             <span class="cell-label">${col.label}</span>
+            ${col.__helpText ? `<button type="button" class="sb-header-help" title="${escapeHtml(col.__helpText)}" aria-label="Column help">
+              <span class="sb-header-help__mark" aria-hidden="true">?</span>
+            </button>` : ''}
             ${col.field === 'status' ? `<button type="button" class="sb-status-settings-btn" title="Status settings" aria-label="Status settings">
               <span aria-hidden="true">${renderIcon('es-line-settings', 'sm', 'sb-header-icon')}</span>
             </button>` : ''}

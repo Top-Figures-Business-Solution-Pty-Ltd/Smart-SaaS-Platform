@@ -330,6 +330,7 @@ components/pages  →  controllers  →  services  →  backend(api/*)
 - 更推荐的升级方向：
   - 保留当前 automation action 名称不变
   - 将季度规则提取为独立 resolver / rule provider
+  - 在 `Settings` 中提供 admin-only 的 `Quarterly Due Date Rules` 配置区块
   - 先读 admin-level 配置
   - 无配置时回退到系统默认规则
 - 如果未来扩展更多财年 / 更多 quarter，不应继续依赖“当前 due date 猜下一次”，而应逐步转向：

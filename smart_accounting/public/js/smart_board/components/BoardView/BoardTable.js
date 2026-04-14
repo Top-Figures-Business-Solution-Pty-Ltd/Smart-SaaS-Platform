@@ -985,6 +985,7 @@ export class BoardTable {
             const baseHeaderClass = columnRegistry.getHeaderClass({ column: col }) || '';
             col.__headerClass = `${baseHeaderClass} ${col.__isPrimary ? 'sb-primary-col' : ''}`.trim();
             col.__cellClass = col.__isPrimary ? 'sb-primary-col' : '';
+            col.__helpText = this._getHeaderHelpText(col);
             // Keep the primary (first user) column sticky so right-side content doesn't slide behind it.
             col.frozen = !!(col.frozen || col.__isPrimary);
             if (col.frozen) {
@@ -995,6 +996,21 @@ export class BoardTable {
             }
         }
         return cols;
+    }
+
+    _getHeaderHelpText(col) {
+        const field = String(col?.field || '').trim();
+        const viewType = String(this.viewType || '').trim();
+        if (field !== 'custom_lodgement_due_date') return '';
+        if (!['BAS', 'IAS'].includes(viewType)) return '';
+        return [
+            'Quarterly BAS/IAS rollover rule:',
+            '- before 26 May 2026 -> rolls to 26 May 2026',
+            '- from 26 May 2026 to before 25 August 2026 -> rolls to 25 August 2026',
+            '- on or after 25 August 2026 -> rollover stops and a warning is shown',
+            '',
+            'Future yearly quarterly rules will be managed in Settings > Quarterly Due Date Rules (in development).',
+        ].join('\n');
     }
 
     bindBulkSelect() {

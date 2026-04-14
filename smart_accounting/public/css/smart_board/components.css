@@ -217,6 +217,46 @@ select.form-control {
     margin-bottom: 12px;
 }
 
+.sb-settings__hint-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: rgba(100, 116, 139, 0.10);
+    color: #475569;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+}
+
+.sb-header-help {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    margin-left: 6px;
+    padding: 0;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: #94a3b8;
+    cursor: help;
+}
+
+.sb-header-help:hover {
+    background: rgba(148, 163, 184, 0.14);
+    color: #64748b;
+}
+
+.sb-header-help__mark {
+    font-size: 12px;
+    line-height: 1;
+    font-weight: 800;
+}
+
 /* Generic scroll container that should expose a visible horizontal scrollbar when needed */
 .sb-table-scroll {
     overflow-x: scroll;
