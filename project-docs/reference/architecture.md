@@ -2,7 +2,7 @@
 # 架构与开发规范（Smart Board + /smart 产品壳）
 
 **项目**：Smart Accounting  
-**最后更新**：2026-02-04  
+**最后更新**：2026-04-10  
 **适用范围**：`apps/smart_accounting/smart_accounting/`（前端 Smart Board + 后端 API/Hook/Override）  
 
 > 这份文档的定位是“**架构契约**”：告诉团队哪些边界是**必须遵守的**，哪些是**建议**，以及如何在不破坏现有功能的前提下持续演进。

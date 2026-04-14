@@ -79,7 +79,7 @@ export class ProjectActivityModal {
     `;
 
     this._modal = new Modal({
-      title: `Activity · ${escapeHtml(this.project?.project_name || this.project?.name || '')}`,
+      title: `Activity · ${this.project?.project_name || this.project?.name || ''}`,
       contentEl: content,
       onClose: () => this.onClose(),
     });

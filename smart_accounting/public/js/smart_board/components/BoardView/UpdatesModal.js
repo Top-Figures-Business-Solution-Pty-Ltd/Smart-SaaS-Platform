@@ -69,7 +69,7 @@ export class UpdatesModal {
 
     const footer = null;
     this._modal = new Modal({
-      title: `Updates · ${escapeHtml(title)}`,
+      title: `Updates · ${title}`,
       contentEl: content,
       footerEl: footer,
       modalClass: 'sb-modal--updates',

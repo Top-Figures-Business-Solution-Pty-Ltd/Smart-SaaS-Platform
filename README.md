@@ -15,7 +15,7 @@ Smart Accounting 是一个专为会计事务所设计的 SaaS 项目管理平台
 ### 核心特性
 
 - 📊 **多业务类型支持**: ITR, BAS, Payroll, Bookkeeping, Grants 等
-- 👥 **团队协作**: Preparer, Reviewer, Partner 角色分配
+- 👥 **团队协作**: Preparer, Manager, Partner 等角色分配
 - 📅 **截止日期管理**: 法定截止日期 + 内部目标日期
 - 🎨 **Monday.com 风格界面**: 表格视图、看板视图、筛选器
 - 🔐 **多租户隔离**: Frappe 原生多 Site 架构
@@ -57,9 +57,13 @@ Smart Accounting 是一个专为会计事务所设计的 SaaS 项目管理平台
 
 ### 设计文档
 
-- **Document A**: [数据模型设计](project-docs/reference/A_Data_Model_Assessment.md) - v8.2
+- **Document A**: [数据模型设计](project-docs/reference/A_Data_Model_Assessment.md) - v8.4
+- **Architecture Contract**: [架构契约](project-docs/reference/architecture.md)
 - **Document D**: [UI 设计](project-docs/reference/D_UI_Design.md)
 - **Document E**: [实施教程](project-docs/reference/E_Implementation_Tutorial.md)
+- **Document F**: [Report 页面设计](project-docs/reference/F_Report_Page_Design.md)
+
+> 当前实现口径以 `project-docs/reference/` 下各文档文头版本和 `smart_accounting/hooks.py` 中的应用配置为准。
 
 ### 快速开始
 
@@ -75,7 +79,7 @@ Smart Accounting 是一个专为会计事务所设计的 SaaS 项目管理平台
 
 **新增**：
 - ✅ 引入 `smart_board` 前端模块化目录结构（组件/服务/状态管理/样式）
-- ✅ `hooks.py` 中加入 Smart Board 的 `app_include_js/app_include_css`
+- ✅ 建立 Smart Board 的稳定入口与按需加载策略（Desk Page / Website Shell 共用同一前端模块）
 
 ### v2.2 (2026-01-19) - Smart Board 核心可用（编辑/性能/附件/月度）
 
@@ -104,12 +108,12 @@ Smart Accounting 是一个专为会计事务所设计的 SaaS 项目管理平台
 - ✅ 多 Site 架构实现租户隔离
 
 **数据模型**：
-- Project: 8 个扩展字段（v8.2+，包含 Engagement Letter）
+- Project: 当前实现以 `project-docs/reference/A_Data_Model_Assessment.md` 为准，已覆盖实体关联、团队成员、频率、截止日期、软件、附件与归档元数据
 - Task: 2 个扩展字段（v8.0+）
 - Customer: 2 个扩展字段（v8.1+）
 - Contact: 3 个扩展字段
 - Project Type: 使用原生（无需扩展）
-- 新增子表：Customer Entity、Project Team Member
+- 新增子表 / 辅助 DocType：Customer Entity、Project Team Member、Monthly Status 等
 
 ### v1.0 (2024-2025) - 已废弃
 

@@ -9,7 +9,7 @@ This file centralizes the main project documents without forcing risky moves of 
 - `apps/smart_accounting/README.md`
   App overview, architecture summary, and historical notes.
 - `apps/smart_accounting/CLEAN_SLATE_REPORT.md`
-  Historical clean-slate reset record and earlier restructuring notes.
+  Historical clean-slate reset record and earlier restructuring notes. Read as a historical snapshot, not the current source of truth.
 - `apps/smart_accounting/project-docs/reference/README.md`
   Index of the migrated core reference documents.
 - `apps/smart_accounting/project-docs/reference/A_Data_Model_Assessment.md`
@@ -22,6 +22,8 @@ This file centralizes the main project documents without forcing risky moves of 
   UI and interaction design notes.
 - `apps/smart_accounting/project-docs/reference/E_Implementation_Tutorial.md`
   Implementation and setup tutorial.
+- `apps/smart_accounting/project-docs/reference/F_Report_Page_Design.md`
+  Report page analysis, information architecture, and MVP design direction.
 - `apps/smart_accounting/project-docs/reference/architecture.md`
   Additional architecture notes.
 - `apps/smart_accounting/smart_accounting/public/js/smart_board/README.md`

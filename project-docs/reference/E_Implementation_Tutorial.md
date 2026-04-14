@@ -37,6 +37,11 @@
   - board 级 allowed subset 由 `api/board_settings.py` 管理
 - **Task 团队字段以 `custom_task_members` 为准**
   - 任务团队不再以 ERPNext Assignment 作为 Smart Board 主要实现路径
+- **`hooks.py` 当前不以 `doctype_js = {"Project": "public/js/project.js"}` 作为主要状态配置路径**
+  - 当前产品口径是：Status 全局池来自 Property Setter / DocType options
+  - board 级 allowed subset 由 `api/board_settings.py` 和前端 `BoardStatusService` 处理
+- **Smart Board 当前按需加载，不通过全局 `app_include_js/app_include_css` 注入**
+  - Desk Page `project_management` 与 `/smart` 产品壳共用同一前端模块
 - **Project 实体字段现状**
   - 当前真实字段应包含 `custom_customer_entity`、`custom_entity_type`、`custom_year_end`
   - 其中 `custom_entity_type` 更偏展示/派生，`custom_customer_entity` 才是实际关联
@@ -94,11 +99,11 @@
    - Phase 2: Customer & Contact 扩展
    - Phase 2.5: 创建 Project Team Member 子表 DocType
    - Phase 3: 创建 Software DocType
-   - Phase 4: Project 扩展（8字段）
+   - Phase 4: Project 扩展（当前字段以文首校正为准）
    - Phase 5: Task 扩展（2字段）
-   - Phase 6: 创建 Saved View DocType
-   - Phase 7: 配置 Status 选项和动态过滤
-   - Phase 8: 配置 Auto Repeat（周期性Project）
+   - Phase 6: 创建 Saved View DocType（当前实现为 v2）
+   - Phase 7: Board Status 配置（当前口径）
+   - Phase 8: Project Frequency / Auto Repeat（历史兼容路径）
 6. [实施顺序总结](#6-实施顺序总结)
 7. [验证清单](#7-验证清单)
 
@@ -117,7 +122,7 @@
 | **扩展 Project** | 添加 7 个 custom fields（含team_members子表）|
 | **扩展 Task** | 添加 2 个 custom fields（最大化利用原生字段）|
 | **创建 Software DocType** | 新建极简 DocType（2 个字段）|
-| **创建 Saved View DocType** | 新建精简 DocType（7 个字段）|
+| **创建 Saved View DocType** | 新建当前实现使用的 Saved View v2 DocType |
 | **Board Status 配置** | `board_settings.py` + Property Setter（board allowed statuses）|
 | **Project Frequency / 历史 Auto Repeat** | 旧文档保留；不应作为当前 Smart Board 权威实现路径 |
 | **配置选项** | 配置 Select 字段的选项（通过 Property Setter）|
@@ -568,9 +573,11 @@ Completed
 
 ---
 
-#### Step 2: 实现动态过滤（Client Script - 推荐）
+#### Step 2: 实现动态过滤（Client Script - 历史兼容路径）
 
-**目标**：根据project_type动态显示相关的status选项
+**目标**：为仍依赖 Project 表单前端过滤的旧站点保留兼容做法。
+
+> **当前推荐口径**：新实现优先使用 Property Setter + `api/board_settings.py` + Smart Board `BoardStatusService`，不要再把状态映射硬编码为主方案。
 
 **实现步骤：**
 
@@ -666,12 +673,12 @@ function filter_status_options(frm) {
 }
 ```
 
-**2.2 配置到hooks.py**
+**2.2 配置到 hooks.py（仅旧站点兼容时使用）**
 
 编辑：`apps/smart_accounting/smart_accounting/hooks.py`
 
 ```python
-# 添加或更新以下配置
+# 以下配置仅在旧站点仍保留前端表单过滤时使用
 
 # 方式1：全局JS
 app_include_js = [
@@ -895,23 +902,20 @@ apps/smart_accounting/smart_accounting/
 
 ---
 
-#### Step 4: 配置钩子到 hooks.py
+#### Step 4: 配置钩子到 hooks.py（以当前实现为准）
 
 ```python
 # apps/smart_accounting/smart_accounting/hooks.py
 
-# 覆盖 ERPNext 原生 Project（Phase 8）
+# 覆盖 ERPNext 原生 Project（当前实现）
 override_doctype_class = {
-    "Project": "smart_accounting.overrides.project.CustomProject"
-}
-
-# Project Client Script（Phase 7）
-doctype_js = {
-    "Project": "public/js/project.js"
+    "Project": "smart_accounting.custom.project.CustomProject"
 }
 ```
 
-> **重要提示**：hooks.py需要同时配置Phase 7（project.js）和Phase 8（project.py）的内容
+> **重要提示**：
+> - 上面是当前仓库的主要 hooks 口径
+> - 旧文档中的 `project.js` / `doctype_js` 仅可视为历史方案或站点兼容路径，不再是当前 Status 配置主路径
 
 ---
 
@@ -955,11 +959,11 @@ bench restart
 | **2** | Customer & Contact 扩展 | UI (Customize Form) |
 | **2.5** | 创建 Project Team Member 子表 DocType | UI (New DocType - 子表，3字段) |
 | **3** | 创建 Software DocType 和记录 | UI (New DocType + 创建记录，2字段) |
-| **4** | Project 扩展（8字段）| UI (Customize Form) |
+| **4** | Project 扩展（当前字段以文首校正为准）| UI (Customize Form) |
 | **5** | Task 扩展（2字段）| UI (Customize Form) |
-| **6** | 创建 Saved View DocType | UI (New DocType，7字段) |
-| **7** | Status动态过滤 | 代码（Client Script + hooks.py）|
-| **8** | Auto Repeat 自动创建 | 代码（after_insert, validate, on_recurring钩子）|
+| **6** | 创建 Saved View DocType | UI（当前实现为 Saved View v2） |
+| **7** | Board Status 配置 | Property Setter + `api/board_settings.py` + `BoardStatusService` |
+| **8** | Auto Repeat 兼容路径 | 仅当目标站点仍启用该路径时验证 |
 
 > **说明**：
 > - "准备"阶段需要创建业务所需的Project Type记录（如ITR、BAS、R&D Grant等），这些是ERPNext原生数据，在后续Phase中会用到。
@@ -969,7 +973,7 @@ bench restart
 
 ## 7. 验证清单
 
-### 7.0 执行顺序（TODO）
+### 7.0 当前验证顺序
 
 > 建议按 **P0 → P1 → P2 → P3** 顺序推进：先让 Smart Board 有数据、再补齐缺失字段/基础数据、再验证状态与 Auto Repeat，最后再清理过期配置。
 
@@ -1048,7 +1052,7 @@ bench restart
 - [x] Customer Entity 子表DocType 创建成功（**v4.1新增**，5字段）【fixtures/doctype.json】
 - [x] Project Team Member 子表DocType 创建成功（**v4.3新增**，3字段）【fixtures/doctype.json】
 - [x] Software DocType 创建成功（2字段）【fixtures/doctype.json】
-- [x] Saved View DocType 创建成功（7字段）【fixtures/doctype.json】
+- [x] Saved View DocType 创建成功（当前实现为 v2）【fixtures/doctype.json】
 - [ ] 能创建 Customer Entity 记录（entity_name, entity_type, abn, year_end, is_primary）
 - [ ] 能创建 Project Team Member 记录（user, role, assigned_date）
 - [ ] 能创建 Software 记录（如 Xero, MYOB）
@@ -1061,7 +1065,7 @@ bench restart
   - [x] `custom_is_referrer`【fixtures/custom_field.json】
   - [ ] `custom_contact_role`（当前 fixtures 中未发现）
   - [x] `custom_social_accounts`【fixtures/custom_field.json】
-- [ ] Project 扩展：9 个字段（`custom_customer_entity`, `custom_entity_type`, `custom_team_members`, `custom_fiscal_year`, `custom_target_month`, `custom_lodgement_due_date`, `custom_project_frequency`, `custom_softwares`, `custom_engagement_letter`）
+- [ ] Project 扩展：当前关键字段已补齐（以文首校正与 fixtures 为准）
   - [x] `custom_entity_type`【fixtures/custom_field.json】
   - [x] `custom_team_members`【fixtures/custom_field.json】
   - [x] `custom_fiscal_year`【fixtures/custom_field.json】
@@ -1077,13 +1081,13 @@ bench restart
 
 - [ ] Customer 可以添加多个 entities（子表）
 - [ ] Project 可以添加多个 team_members（子表）**v4.3新增**
-- [ ] 在 Project 表单中能看到所有 8 个新字段（含 Engagement Letter）
+- [ ] 在 Project 表单中能看到当前所需关键字段（含 Engagement Letter、实体关联与团队字段）
 - [ ] Project.custom_entity_type 可以从 Customer.custom_entities 选择
-- [ ] Project.custom_team_members 可以添加团队成员并选择角色（Preparer/Reviewer/Partner）**v4.3新增**
+- [ ] Project.custom_team_members 可以添加团队成员并选择角色（以当前 `Project Team Member.role` 选项为准）**v4.3新增**
 - [ ] Project.project_type 可以正常选择（ERPNext 原生字段，无需扩展）
 - [ ] Project.custom_softwares 可以选择 Software 记录
 - [ ] Customer、Contact、Task 的扩展字段都能正常显示
-- [ ] Saved View 能正常保存 JSON 字段内容（7 个字段）
+- [ ] Saved View 能正常保存当前 v2 字段内容
 
 ### 7.4 Select 选项验证
 
@@ -1092,25 +1096,25 @@ bench restart
 - [ ] Customer Entity.entity_type 选项正确
 - [ ] 其他 Select 字段选项正确
 
-### 7.5 Status动态过滤验证（Phase 7 - v4.2新增）
+### 7.5 Board Status 配置验证（当前口径）
 
 **代码文件验证**：
-- [x] 目录存在：`apps/smart_accounting/smart_accounting/public/js/`
-- [x] 文件存在：`apps/smart_accounting/smart_accounting/public/js/project.js`
-- [x] hooks.py配置正确：`doctype_js = {"Project": "public/js/project.js"}`
+- [x] 文件存在：`apps/smart_accounting/smart_accounting/api/board_settings.py`
+- [x] 文件存在：`apps/smart_accounting/smart_accounting/public/js/smart_board/services/boardStatusService.js`
+- [x] `Project.status` 的全局池应来自 Property Setter / DocType options
+- [ ] 若目标站点仍保留 `project.js` / `doctype_js` 兼容逻辑，请单独记录，不作为当前主路径验收标准
 - [ ] 执行了 `bench clear-cache` 和 `bench restart`
 
 **功能验证**：
-- [ ] Project.status字段配置了所有状态超集（12个状态）
-- [ ] 打开Project表单，根据project_type显示对应status选项：
-  - [ ] project_type = "ITR" → status只显示ITR相关状态（7个）
-  - [ ] project_type = "BAS" → status只显示BAS相关状态（8个）
-  - [ ] project_type = "Bookkeeping" → status只显示简化状态（4个）
-  - [ ] project_type = "R&D Grant" → status只显示R&D相关状态（8个）
-- [ ] 切换project_type时，status选项动态更新
-- [ ] 保存的status值在后端完整保留（不受前端过滤影响）
+- [ ] Project.status 全局池已按站点需要配置
+- [ ] Board Settings API 返回的 allowed subset 与当前项目类型一致
+- [ ] Smart Board 中切换不同 board 时，状态选项只显示当前允许的 subset
+- [ ] 保存的 status 值在后端完整保留，且不会被前端过滤逻辑错误覆盖
+- [ ] 若站点同时存在旧表单过滤逻辑，已明确它只是兼容层，不与当前 board 配置打架
 
-### 7.6 Auto Repeat 自动创建验证（Phase 8 - v4.1更新）
+### 7.6 Auto Repeat 兼容路径验证（历史参考）
+
+> 仅当目标站点仍启用该路径时执行。本节不再代表当前 Smart Board 的权威实现说明。
 
 **代码文件验证**：
 - [x] 目录存在：`apps/smart_accounting/smart_accounting/custom/`（本仓库使用 `custom/`，不是 `overrides/`）
@@ -1126,7 +1130,7 @@ bench restart
 - [ ] 修改custom_project_frequency时Auto Repeat同步更新（**validate钩子**）
 - [ ] Auto Repeat自动创建新Project（名称包含entity信息和period）
 - [ ] 新Project的custom_entity_type正确继承
-- [ ] 新Project团队配置正确继承（custom_team, custom_team_members）
+- [ ] 新Project团队配置正确继承（`custom_team_members`）
 - [ ] 新Project状态重置为"Not Started"，percent_complete=0
 
 ---

@@ -302,28 +302,48 @@ export class BoardTable {
         this._savedView = { ...this._savedView, columns: next };
     }
 
+    _resolveSavedColumnLabel({ field, savedLabel, defaultLabel }) {
+        const rawField = String(field || '').trim();
+        const rawSaved = String(savedLabel || '').trim();
+        const rawDefault = String(defaultLabel || '').trim();
+
+        // Older Saved Views sometimes persisted the raw fieldname as the label
+        // (e.g. "custom_year_end"). Prefer the catalog label in that case.
+        if (!rawSaved) return rawDefault || rawField;
+        if (rawSaved === rawField && rawDefault) return rawDefault;
+        return rawSaved;
+    }
+
+    _normalizeSavedProjectColumnsConfig(columnsConfig) {
+        const widths = loadColumnWidths(this.viewType) || {};
+        const defs = this.getAvailableColumnDefs(true);
+        const map = new Map(defs.map((d) => [d.field, d]));
+
+        return (Array.isArray(columnsConfig) ? columnsConfig : [])
+            .map((c) => {
+                const field = String(c?.field || '').trim();
+                if (!field) return null;
+                const def = map.get(field);
+                const base = def ? { ...def } : { field, label: field, width: 150 };
+                const label = this._resolveSavedColumnLabel({
+                    field,
+                    savedLabel: c?.label,
+                    defaultLabel: base.label,
+                });
+                const next = { ...base, field, label };
+                if (widths[next.field]) next.width = widths[next.field];
+                return next;
+            })
+            .filter(Boolean);
+    }
+
     buildColumnsFromConfig(columnsConfig) {
         const sanitized = filterProjectColumnsForModule(
             sanitizeProjectColumnsConfig(columnsConfig),
             this.moduleKey,
             { viewType: this.viewType }
         );
-        const widths = loadColumnWidths(this.viewType) || {};
-        // Include hidden defs so Saved View columns still render with proper labels.
-        const defs = this.getAvailableColumnDefs(true);
-        const map = new Map(defs.map(d => [d.field, d]));
-
-        const cols = (sanitized || [])
-            .map((c) => {
-                const field = c?.field;
-                if (!field) return null;
-                const def = map.get(field);
-                const base = def ? { ...def } : { field, label: field, width: 150 };
-                if (c.label) base.label = c.label;
-                if (widths[base.field]) base.width = widths[base.field];
-                return base;
-            })
-            .filter(Boolean);
+        const cols = this._normalizeSavedProjectColumnsConfig(sanitized);
 
         // Ensure at least one column exists
         if (cols.length === 0) return this.getColumnsForView();
@@ -358,6 +378,7 @@ export class BoardTable {
             this.moduleKey,
             { viewType: this.viewType }
         );
+        const normalizedProjectCfg = this._normalizeSavedProjectColumnsConfig(cfg).map((c) => ({ field: c.field, label: c.label }));
         const taskCfg = both.tasks || [];
         const nextTaskCols = this._migrateTaskColumns(taskCfg);
         this._taskCols = nextTaskCols;
@@ -369,6 +390,8 @@ export class BoardTable {
             const tasksEmpty = !(Array.isArray(taskCfg) && taskCfg.length);
             const droppedDeprecated = Array.isArray(cfgRaw) && cfgRaw.length !== cfg.length;
             const filteredByModule = Array.isArray(cfgRaw) && cfgRaw.length !== cfg.length;
+            const staleProjectLabels = Array.isArray(cfg)
+                && cfg.some((c, idx) => String(c?.label || '').trim() !== String(normalizedProjectCfg[idx]?.label || '').trim());
             const missingRequiredModuleCols = String(this.moduleKey || '') === 'grants'
                 && [
                     'custom_grants_deliverer',
@@ -376,14 +399,14 @@ export class BoardTable {
                     'custom_grants_industry_category',
                     'custom_grants_address_snapshot',
                 ].some((field) => !(cfg || []).some((c) => String(c?.field || '').trim() === field));
-            if (view?.name && (isLegacyArray || tasksEmpty || droppedDeprecated || filteredByModule || missingRequiredModuleCols)) {
-                await ViewService.updateView(view.name, { columns: { project: cfg || [], tasks: nextTaskCols } });
-                this._setSavedViewColumnsInMemory({ project: cfg || [], tasks: nextTaskCols });
+            if (view?.name && (isLegacyArray || tasksEmpty || droppedDeprecated || filteredByModule || staleProjectLabels || missingRequiredModuleCols)) {
+                await ViewService.updateView(view.name, { columns: { project: normalizedProjectCfg || [], tasks: nextTaskCols } });
+                this._setSavedViewColumnsInMemory({ project: normalizedProjectCfg || [], tasks: nextTaskCols });
             }
         } catch (e) {}
-        if (!cfg || cfg.length === 0) return;
+        if (!normalizedProjectCfg || normalizedProjectCfg.length === 0) return;
 
-        this.columns = this.buildColumnsFromConfig(cfg);
+        this.columns = this.buildColumnsFromConfig(normalizedProjectCfg);
         this.render();
     }
     

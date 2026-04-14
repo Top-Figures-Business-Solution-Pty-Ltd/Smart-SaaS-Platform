@@ -912,7 +912,7 @@ Project命名：
 
 ---
 
-### 4.2.2 Monthly Status（新建 - v9.x）
+### 4.2.2 Monthly Status（新建 - v8.3，当前已落地）
 
 > **定位**：支持 Monday.com 风格的“按财年 12 个月网格状态”，用于：
 > - Task：Monthly Task Status（每格 Not Started / Working On It / Stuck / Done）
@@ -1101,11 +1101,11 @@ Cancelled
 | **Board Column** | 被替代 | Saved View JSON |
 | **Board Cell** | 被替代 | Saved View JSON |
 
-### 5.2 删除的子表 DocType
+### 5.2 删除的早期子表 DocType 方案
 
 | DocType | 原因 | 替代方案 |
 |---------|------|---------|
-| **Task Role Assignment** | 简化架构 | Project 的 `team` JSON 字段 |
+| **Task Role Assignment** | 旧设计被统一 | Project / Task 使用 `custom_team_members` / `custom_task_members` 子表，底层复用 `Project Team Member` |
 | **Review Note** | 用原生功能 | Frappe Comment 系统 |
 | **Software Item** | 不再作为子表 | 改为独立DocType Software（支持租户自定义）|
 | **Communication Method** | 过度设计 | MultiSelect 字段 |
@@ -1180,64 +1180,57 @@ Task 列表：
 
 ---
 
-## 7. 实施步骤
+## 7. 当前实施状态
 
-### Phase 1: 创建子表DocType
-- [ ] Customer Entity 子表DocType（4个字段：entity_name, entity_type, abn, year_end, is_primary）
+> 本节用于替代早期的 Phase 草稿。若旧版步骤与本节冲突，请以本节和文首的 2026-03/04 校正说明为准。
 
-### Phase 2: 基础层扩展
-- [ ] Customer 扩展字段（2个字段：custom_referred_by, custom_entities）
-- [ ] Contact 扩展字段（3个字段：custom_is_referrer, custom_contact_role, custom_social_accounts）
+### 7.1 当前已落地的结构
 
-### Phase 3: 核心层扩展
-- [x] 创建 Project Team Member 子表 DocType（3个字段：user, role, assigned_date）
-- [x] Project 扩展字段（8个字段：custom_entity_type, custom_team_members, custom_fiscal_year, custom_target_month, custom_lodgement_due_date, custom_project_frequency, custom_softwares, custom_engagement_letter）
-- [x] Task 扩展字段（2个字段：custom_fiscal_year, custom_period）
-- [x] Task 成员子表（custom_task_members → Project Team Member）
-- [x] Monthly Status DocType（用于月度网格/汇总）
-- [x] Project Auto Repeat钩子（after_insert和validate方法：自动创建和同步Auto Repeat）
+- [x] `Project` 仍是统一业务实体，承载会计和 Grants 两条产品线
+- [x] `Customer Entity` 子表已作为客户多实体方案落地
+- [x] `Project Team Member` 子表已作为 Project / Task 的团队成员统一模型落地
+- [x] `Monthly Status` 已落地，用于 Task 月度网格与 Project 月度汇总
+- [x] `Software`、`Saved View`、`Board Automation`、`Automation Run Log` 等辅助 DocType 已进入当前实现
+- [x] `Saved View` 当前使用 v2 结构，不再是“7 字段极简版”
+- [x] Project 状态采用“Property Setter 全局池 + board allowed subset”模式
+- [x] `/smart` 产品壳、Smart Board 多产品页、Client / Status / Activity / Users / Report 等视图已进入当前产品结构
 
-### Phase 4: 创建辅助DocType
-- [ ] Software DocType（2个字段：software_name, is_active）
-- [ ] Saved View DocType（7个字段）
+### 7.2 当前字段与行为口径
 
-### Phase 3: 视图层
-- [ ] 创建 Saved View DocType
-- [ ] 为 ITR/BAS/Bookkeeping 等创建默认 View
-- [ ] 实现 View 保存/加载机制
+- [x] `Project.custom_customer_entity` 是实体关联主字段
+- [x] `Project.custom_entity_type` 更偏展示或派生信息
+- [x] `Project.custom_team_members` / `Task.custom_task_members` 为当前团队分配口径
+- [x] `Project.custom_year_end`、`custom_project_frequency`、`custom_lodgement_due_date`、`custom_softwares`、`custom_engagement_letter` 等能力已进入现有实现
+- [x] 归档元数据除 `is_active` 外，还包含 `custom_archive_source` / `custom_archive_source_ref`
 
-### Phase 4: 数据迁移
-- [ ] 编写旧 Task → Project 迁移脚本
-- [ ] 编写 Partition → Saved View 迁移脚本
-- [ ] 测试数据完整性
+### 7.3 历史路线说明
 
-### Phase 5: 前端改造
-- [ ] 实现统一列表视图
-- [ ] 实现 View 选择/切换功能
-- [ ] 适配新数据结构
+- 旧版关于 `Task -> Project` 的迁移步骤、Saved View 7 字段方案、以及以 Auto Repeat 作为 Smart Board 主路径的写法，保留为历史背景
+- 这些历史路线不再作为当前实现状态的判断依据
+- 如果需要追溯演进过程，可继续参考附录修订历史
 
 ---
 
-## 8. 待确认问题
+## 8. 当前待确认与开放项
 
 | 问题 | 状态 | 备注 |
 |------|------|------|
 | 核心架构？ | ✅ 已确认 | 只用 Project（ERPNext 原生 + 扩展），不新建 Engagement |
-| 人员分配方案？ | ✅ 已确认 | JSON 字段 `team`，支持 Monday.com 风格多人分配，**每个角色可多人** |
+| 人员分配方案？ | ✅ 已确认 | 当前使用 `Project Team Member` 子表；Project / Task 分别通过 `custom_team_members` / `custom_task_members` 持有 |
 | `referral_person` 设计？ | ✅ 已确认 | 用 Contact + `is_referrer` 替代独立 DocType |
-| 子表 DocType？ | ✅ 已确认 | 全部删除，用 MultiSelect 字段 / Comment 系统 / Data 字段替代 |
+| 子表 DocType？ | ✅ 已确认 | 保留必要子表（如 Customer Entity、Project Team Member、Monthly Status），不再走“全部删除”路线 |
 | User Preferences？ | ✅ 已确认 | 不需要，用 Frappe 原生机制 |
-| Notes vs Comments？ | ✅ 已确认 | **双轨制**：`notes` 字段（静态备注）+ Frappe Comment（动态讨论）|
-| 法定截止日期？ | ✅ 已确认 | 新增 `lodgement_due_date` 字段，区别于 `expected_end_date`（内部目标）|
-| Software 配置？ | ✅ 已确认 | 新建极简DocType（2字段），TF/TG共用 |
-| Project Type 配置？ | ✅ 已确认 | 使用ERPNext原生，无需扩展，TF/TG共用 |
-| Status 配置？ | ✅ 已确认 | 使用原生字段 + **Property Setter**配置选项 |
-| SaaS 多租户隔离？ | ✅ 已确认 | **Frappe 多 Site 架构** + **Company字段区分TF/TG** |
-| Project 状态选项具体列表？ | 📋 待确认 | 需与同事商讨，他们有自己的 status 使用习惯（Property Setter 可配置）|
-| Task 状态选项具体列表？ | 📋 待确认 | 跟随 Project 状态讨论后确定（Property Setter 可配置）|
-| Saved View 基础字段？ | ✅ 已确认 | 精简到7个核心字段，不区分company |
-| `project_type` 分类最终列表？ | 📋 后续确认 | 人工商议后添加（ITR/BAS/Bookkeeping/Payroll/...）|
-| Team JSON 格式细节？ | 📋 后续确认 | email / user name / user ID，implement 前统一 |
+| Notes vs Comments？ | ✅ 已确认 | 双轨制：`notes` 字段（静态备注）+ Frappe Comment（动态讨论） |
+| 法定截止日期？ | ✅ 已确认 | 新增 `lodgement_due_date` 字段，区别于 `expected_end_date`（内部目标） |
+| Software 配置？ | ✅ 已确认 | 新建极简 DocType（2 字段），TF/TG 共用 |
+| Project Type 配置？ | ✅ 已确认 | 使用 ERPNext 原生，无需扩展，TF/TG 共用 |
+| Status 配置？ | ✅ 已确认 | 使用原生字段 + Property Setter 配置全局池，Board Settings 管理 allowed subset |
+| SaaS 多租户隔离？ | ✅ 已确认 | Frappe 多 Site 架构 + 当前单 Site 阶段用 Company 区分 TF/TG |
+| Saved View 基础字段？ | ✅ 已确认 | 当前实现已使用 v2 schema，不再是 7 字段极简版 |
+| Auto Repeat 在当前产品中的定位？ | ✅ 已确认 | 保留为历史背景和部分站点兼容路径，不再作为当前 Smart Board 权威实现说明 |
+| Project 状态选项具体列表？ | 📋 持续调整 | 由站点配置与团队实际使用习惯共同决定 |
+| Task 状态选项具体列表？ | 📋 持续调整 | 通常跟随 Project / 业务场景继续收敛 |
+| `project_type` 分类最终列表？ | 📋 后续确认 | 按真实业务需要持续补充（ITR/BAS/Bookkeeping/Payroll/Grants/...） |
 
 ---
 

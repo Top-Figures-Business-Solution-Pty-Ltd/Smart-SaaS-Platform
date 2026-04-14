@@ -14,6 +14,8 @@ This folder contains the migrated core reference documents that previously lived
   UI structure, interaction design, and visual decisions.
 - `E_Implementation_Tutorial.md`
   Implementation and setup guidance.
+- `F_Report_Page_Design.md`
+  Report 页面现状分析、信息架构与首版设计建议。
 - `architecture.md`
   Architecture rules, module boundaries, and engineering conventions.
 
