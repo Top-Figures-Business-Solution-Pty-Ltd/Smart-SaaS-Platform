@@ -23,6 +23,7 @@ import { ProjectService } from '../../services/projectService.js';
 import { TaskService } from '../../services/taskService.js';
 import { confirmDialog, notify } from '../../services/uiAdapter.js';
 import { escapeHtml } from '../../utils/dom.js';
+import { exportSelectedProjectsCSV } from '../../utils/csvExport.js';
 import { sanitizeProjectColumnsConfig } from '../../utils/deprecatedColumns.js';
 import { ProjectActivityModal } from './ProjectActivityModal.js';
 import * as ViewTypes from '../../utils/viewTypes.js';
@@ -426,11 +427,13 @@ export class BoardTable {
         if (this.container) this.container.dataset.sbReadonly = archived ? '1' : '0';
         const bulkActionButtons = archived
             ? `
+                  <button type="button" class="btn btn-default btn-sm" data-action="bulk-export">Export (CSV)</button>
                   <button type="button" class="btn btn-default btn-sm" data-action="bulk-restore">Restore</button>
                   <button type="button" class="btn btn-light btn-sm" data-action="bulk-clear">Clear</button>
               `
             : `
                   <button type="button" class="btn btn-default btn-sm" data-action="bulk-add-task">Add Task</button>
+                  <button type="button" class="btn btn-default btn-sm" data-action="bulk-export">Export (CSV)</button>
                   <button type="button" class="btn btn-default btn-sm" data-action="bulk-archive">Archive</button>
                   <button type="button" class="btn btn-danger btn-sm" data-action="bulk-delete">Delete</button>
                   <button type="button" class="btn btn-light btn-sm" data-action="bulk-clear">Clear</button>
@@ -1184,6 +1187,12 @@ export class BoardTable {
             return;
         }
 
+        // Export is read-only; allow it in both archived and active boards.
+        if (action === 'bulk-export') {
+            await this._bulkExport();
+            return;
+        }
+
         if (this.isArchivedBoard()) {
             if (action === 'bulk-restore') {
                 const ok = await confirmDialog(`Restore ${names.length} projects? (Set is_active = Yes)`);
@@ -1210,6 +1219,30 @@ export class BoardTable {
             if (!ok) return;
             await this._bulkDelete();
             return;
+        }
+    }
+
+    // Export the currently selected projects to CSV using whatever columns are
+    // rendered on-screen right now (reuses utils/csvExport.js core).
+    async _bulkExport() {
+        const names = this._getSelectedNames();
+        if (!names.length) return;
+        if (this._bulkWorking) return;
+        this._bulkWorking = true;
+        this.updateBulkBar();
+        try {
+            await exportSelectedProjectsCSV({
+                store: this.store,
+                viewType: this.viewType,
+                selectedNames: names,
+                columns: this._renderColumns || this.columns || [],
+            });
+        } catch (e) {
+            console.error(e);
+            notify('Export failed', 'red');
+        } finally {
+            this._bulkWorking = false;
+            this.updateBulkBar();
         }
     }
 

@@ -87,21 +87,66 @@ async function resolveProjectColumns(viewType) {
   return (DEFAULT_COLUMNS[viewType] || DEFAULT_COLUMNS.DEFAULT || []).map((c) => ({ field: c.field, label: c.label }));
 }
 
+// Shape incoming column specs into a flat {field, label} list safe for CSV export.
+// Drops internal columns (select checkbox, virtual `__sb_*` columns) and normalises labels.
+function normalizeExportColumns(cols) {
+  return (Array.isArray(cols) ? cols : [])
+    .filter((c) => c?.field && !String(c.field).startsWith('__sb_'))
+    .map((c) => ({ field: c.field, label: c.label || c.field }));
+}
+
+function buildProjectsCsvText(rows, cols) {
+  const header = cols.map((c) => esc(c?.label || c?.field || ''));
+  const lines = [header.join(',')];
+  for (const r of rows) {
+    lines.push(cols.map((c) => esc(projectCell(r, c.field))).join(','));
+  }
+  // BOM so Excel opens UTF-8 cleanly.
+  return `\ufeff${lines.join('\n')}`;
+}
+
 export async function exportCurrentProjectsCSV({ store, viewType } = {}) {
   const rows = store?.getState?.()?.projects?.items || [];
   if (!Array.isArray(rows) || !rows.length) {
     notify('No loaded project rows to export.', 'orange');
     return;
   }
-  const cols = await resolveProjectColumns(viewType);
-  const header = cols.map((c) => esc(c?.label || c?.field || ''));
-  const lines = [header.join(',')];
-  for (const r of rows) {
-    lines.push(cols.map((c) => esc(projectCell(r, c.field))).join(','));
-  }
+  const cols = normalizeExportColumns(await resolveProjectColumns(viewType));
   const file = `projects_${String(viewType || 'board').replace(/\s+/g, '_')}_${todayStamp()}.csv`;
-  download(file, `\ufeff${lines.join('\n')}`);
+  download(file, buildProjectsCsvText(rows, cols));
   notify(`Exported ${rows.length} loaded projects.`, 'green');
+}
+
+// Export only the rows whose `name` is in `selectedNames`.
+// - `columns` (optional): the columns currently rendered by the caller; lets us
+//   honour "export exactly what I see", including unsaved column tweaks.
+// - Falls back to the Saved View columns when `columns` is missing/empty.
+export async function exportSelectedProjectsCSV({ store, viewType, selectedNames, columns } = {}) {
+  const names = (Array.isArray(selectedNames) ? selectedNames : [])
+    .map((n) => String(n || '').trim())
+    .filter(Boolean);
+  if (!names.length) {
+    notify('No rows selected.', 'orange');
+    return;
+  }
+  const nameSet = new Set(names);
+  const all = store?.getState?.()?.projects?.items || [];
+  const rows = (Array.isArray(all) ? all : []).filter((r) => nameSet.has(String(r?.name || '')));
+  if (!rows.length) {
+    notify('Selected rows not found in loaded data.', 'orange');
+    return;
+  }
+  let cols = normalizeExportColumns(columns);
+  if (!cols.length) {
+    cols = normalizeExportColumns(await resolveProjectColumns(viewType));
+  }
+  if (!cols.length) {
+    notify('No columns available to export.', 'orange');
+    return;
+  }
+  const file = `projects_${String(viewType || 'board').replace(/\s+/g, '_')}_selected_${todayStamp()}.csv`;
+  download(file, buildProjectsCsvText(rows, cols));
+  notify(`Exported ${rows.length} selected projects.`, 'green');
 }
 
 export async function exportCurrentClientsCSV({ store } = {}) {
