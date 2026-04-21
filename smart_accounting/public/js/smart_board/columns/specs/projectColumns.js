@@ -50,6 +50,29 @@ function priorityOptions() {
   return ['Low', 'Medium', 'High', 'Urgent'];
 }
 
+// Options for Check-type fields rendered as Yes/No selects.
+// Values are strings because the inline <select> element always returns strings;
+// Frappe's set_value coerces "0"/"1" to int on Check fields server-side.
+function yesNoOptions() {
+  return [
+    { value: '0', label: 'No' },
+    { value: '1', label: 'Yes' },
+  ];
+}
+
+// Canonical truthy check for Frappe Check fields.
+// Backend may return 0/1 (int), "0"/"1" (string), or null/undefined.
+function _isCheckYes(v) {
+  return v === 1 || v === '1' || v === true;
+}
+
+function _renderYesNoCell(value) {
+  const yes = _isCheckYes(value);
+  const label = yes ? 'Yes' : 'No';
+  const color = yes ? '#16a34a' : '#94a3b8';
+  return `<span class="status-badge" style="background-color:${color};">${label}</span><span class="sb-afford sb-afford--select">▾</span>`;
+}
+
 async function statusOptionsForProject(project) {
   const pt = String(project?.project_type || '').trim();
   const cur = String(project?.status || '').trim();
@@ -661,6 +684,39 @@ export function makeProjectColumnSpecs() {
       renderEditor: ({ cellEl, project, manager, field }) => {
         const contentEl = cellEl.querySelector('.cell-content') || cellEl;
         const ed = new InlineTextareaEditor(contentEl, { initialValue: project?.[field] || '' });
+        mountEditorHelpers(manager, contentEl, ed);
+        return ed;
+      }
+    },
+
+    // Smart Grants Check columns: TG Tax Agent, Portal Access Received (2026-04)
+    // Backend stores int 0/1; UI surfaces them as Yes/No for accountants.
+    {
+      field: 'custom_tg_tax_agent',
+      isEditable: true,
+      renderCell: ({ project }) => _renderYesNoCell(project?.custom_tg_tax_agent),
+      renderEditor: ({ cellEl, project, manager, field }) => {
+        const contentEl = cellEl.querySelector('.cell-content') || cellEl;
+        const cur = _isCheckYes(project?.[field]) ? '1' : '0';
+        const ed = new InlineSelectEditor(contentEl, {
+          options: yesNoOptions(),
+          initialValue: cur,
+        });
+        mountEditorHelpers(manager, contentEl, ed);
+        return ed;
+      }
+    },
+    {
+      field: 'custom_portal_access_received',
+      isEditable: true,
+      renderCell: ({ project }) => _renderYesNoCell(project?.custom_portal_access_received),
+      renderEditor: ({ cellEl, project, manager, field }) => {
+        const contentEl = cellEl.querySelector('.cell-content') || cellEl;
+        const cur = _isCheckYes(project?.[field]) ? '1' : '0';
+        const ed = new InlineSelectEditor(contentEl, {
+          options: yesNoOptions(),
+          initialValue: cur,
+        });
         mountEditorHelpers(manager, contentEl, ed);
         return ed;
       }

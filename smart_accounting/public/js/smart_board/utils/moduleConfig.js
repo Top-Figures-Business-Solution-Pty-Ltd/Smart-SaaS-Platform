@@ -49,6 +49,9 @@ const GRANTS_PROJECT_FIELDS = new Set([
   'custom_tax_lodgement_date',
   'custom_rebate_amount_text',
   'custom_fee_percentage_text',
+  // Grants checkbox columns (2026-04)
+  'custom_tg_tax_agent',
+  'custom_portal_access_received',
 ]);
 
 export function getModuleKey(explicitKey = null) {

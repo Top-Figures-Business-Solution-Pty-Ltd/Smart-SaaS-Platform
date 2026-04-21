@@ -113,22 +113,6 @@
  },
  {
   "default_value": null,
-  "doc_type": "Project",
-  "docstatus": 0,
-  "doctype": "Property Setter",
-  "doctype_or_field": "DocType",
-  "field_name": null,
-  "is_system_generated": 0,
-  "modified": "2026-03-10 14:21:53.827536",
-  "module": null,
-  "name": "Project-main-field_order",
-  "property": "field_order",
-  "property_type": "Data",
-  "row_name": null,
-  "value": "[\"naming_series\", \"project_name\", \"status\", \"project_type\", \"is_active\", \"percent_complete_method\", \"percent_complete\", \"custom_fiscal_year\", \"custom_target_month\", \"custom_project_frequency\", \"custom_engagement_letter\", \"custom_reset_date\", \"custom_year_end\", \"custom_archive_source\", \"archive_source_ref\", \"column_break_5\", \"project_template\", \"expected_start_date\", \"expected_end_date\", \"priority\", \"department\", \"custom_entity_type\", \"custom_team_members\", \"custom_lodgement_due_date\", \"custom_softwares\", \"custom_customer_entity\", \"custom_ato_status\", \"custom_lodgeit_status\", \"custom_company_agent_status\", \"custom_xeroquickbooks_status\", \"customer_details\", \"customer\", \"column_break_14\", \"sales_order\", \"users_section\", \"users\", \"copied_from\", \"section_break0\", \"notes\", \"section_break_18\", \"actual_start_date\", \"actual_time\", \"column_break_20\", \"actual_end_date\", \"project_details\", \"estimated_costing\", \"total_costing_amount\", \"total_purchase_cost\", \"company\", \"column_break_28\", \"total_sales_amount\", \"total_billable_amount\", \"total_billed_amount\", \"total_consumed_material_cost\", \"cost_center\", \"margin\", \"gross_margin\", \"column_break_37\", \"per_gross_margin\", \"monitor_progress\", \"collect_progress\", \"holiday_list\", \"frequency\", \"from_time\", \"to_time\", \"first_email\", \"second_email\", \"daily_time_to_send\", \"day_to_send\", \"weekly_time_to_send\", \"column_break_45\", \"subject\", \"message\", \"auto_repeat\"]"
- },
- {
-  "default_value": null,
   "doc_type": "Customer",
   "docstatus": 0,
   "doctype": "Property Setter",
@@ -174,5 +158,21 @@
   "property_type": "Text",
   "row_name": null,
   "value": "Not started"
+ },
+ {
+  "default_value": null,
+  "doc_type": "Project",
+  "docstatus": 0,
+  "doctype": "Property Setter",
+  "doctype_or_field": "DocType",
+  "field_name": null,
+  "is_system_generated": 0,
+  "modified": "2026-04-21 10:26:58.487736",
+  "module": null,
+  "name": "Project-main-field_order",
+  "property": "field_order",
+  "property_type": "Data",
+  "row_name": null,
+  "value": "[\"naming_series\", \"project_name\", \"status\", \"project_type\", \"is_active\", \"percent_complete_method\", \"percent_complete\", \"custom_fiscal_year\", \"custom_target_month\", \"custom_project_frequency\", \"custom_engagement_letter\", \"custom_reset_date\", \"custom_year_end\", \"custom_archive_source\", \"custom_archive_source_ref\", \"column_break_5\", \"project_template\", \"expected_start_date\", \"expected_end_date\", \"priority\", \"department\", \"custom_entity_type\", \"custom_team_members\", \"custom_lodgement_due_date\", \"custom_softwares\", \"custom_customer_entity\", \"custom_ato_status\", \"custom_lodgeit_status\", \"custom_company_agent_status\", \"custom_xeroquickbooks_status\", \"customer_details\", \"customer\", \"column_break_14\", \"sales_order\", \"users_section\", \"users\", \"copied_from\", \"section_break0\", \"notes\", \"custom_grants_section\", \"custom_grants_fy_label\", \"custom_grants_abn_snapshot\", \"custom_grants_deliverer\", \"custom_grants_state\", \"custom_grants_industry_category\", \"custom_grants_partner_label\", \"custom_grants_referral_text\", \"portal_access_received\", \"tg_tax_agent\", \"custom_grants_contact_section\", \"custom_grants_owner_name\", \"custom_grants_contact_name\", \"custom_grants_address_snapshot\", \"custom_grants_primary_communication\", \"custom_grants_progress_section\", \"custom_grants_status\", \"custom_ap_submit_date\", \"custom_industry_approval_date\", \"custom_tax_lodgement_date\", \"custom_rebate_amount_text\", \"custom_fee_percentage_text\", \"section_break_18\", \"actual_start_date\", \"actual_time\", \"column_break_20\", \"actual_end_date\", \"project_details\", \"estimated_costing\", \"total_costing_amount\", \"total_purchase_cost\", \"company\", \"column_break_28\", \"total_sales_amount\", \"total_billable_amount\", \"total_billed_amount\", \"total_consumed_material_cost\", \"cost_center\", \"margin\", \"gross_margin\", \"column_break_37\", \"per_gross_margin\", \"monitor_progress\", \"collect_progress\", \"holiday_list\", \"frequency\", \"from_time\", \"to_time\", \"first_email\", \"second_email\", \"daily_time_to_send\", \"day_to_send\", \"weekly_time_to_send\", \"column_break_45\", \"subject\", \"message\", \"auto_repeat\"]"
  }
 ]
