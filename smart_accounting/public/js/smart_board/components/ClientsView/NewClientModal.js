@@ -155,7 +155,7 @@ export class NewClientModal {
     }
     typeSel.innerHTML = safeTypes.length
       ? safeTypes.map((t) => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('')
-      : `<option value="Individual">Individual</option><option value="Company">Company</option><option value="Partnership">Partnership</option><option value="Trust">Trust</option>`;
+      : `<option value="Individual">Individual</option><option value="Company">Company</option><option value="Partnership">Partnership</option><option value="Trust">Trust</option><option value="Other Incorporated Entity">Other Incorporated Entity</option>`;
 
     // Customer Entity.year_end options (configured in ERPNext)
     const yearEnds = await DoctypeMetaService.getSelectOptions('Customer Entity', 'year_end', { force: true });

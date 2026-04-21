@@ -950,7 +950,7 @@
     "non_negative": 0,
     "oldfieldname": null,
     "oldfieldtype": null,
-    "options": "Individual\nCompany\nPartnership\nTrust",
+    "options": "Individual\nCompany\nPartnership\nTrust\nOther Incorporated Entity",
     "parent": "Customer Entity",
     "parentfield": "fields",
     "parenttype": "DocType",

@@ -116,6 +116,8 @@ def _normalize_customer_type_for_customer(customer_type: str) -> str:
 	Fallback strategy:
 	- If input exists in options: keep it.
 	- If input is Trust but Customer doesn't support Trust: fallback to Company.
+	- If input is Other Incorporated Entity: fallback to Company (incorporated entities
+	  behave like companies in ERPNext tax/reporting).
 	- Else fallback to first available option, then 'Individual'.
 	"""
 	ct = str(customer_type or "").strip()
@@ -125,6 +127,10 @@ def _normalize_customer_type_for_customer(customer_type: str) -> str:
 	if ct in opts:
 		return ct
 	if ct.lower() == "trust":
+		for cand in ("Company", "Individual"):
+			if cand in opts:
+				return cand
+	if ct.lower() == "other incorporated entity":
 		for cand in ("Company", "Individual"):
 			if cand in opts:
 				return cand
