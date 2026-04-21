@@ -38,13 +38,21 @@ export class BoardStatusService {
     if (!pt) return { configured: false, allowed: [], pool: await this.getPool() };
     const c = _cfgCache.get(pt);
     if (!force && c && _now() < (c.expiresAt || 0)) {
-      return { configured: !!c.configured, allowed: c.allowed || [], pool: await this.getPool() };
+      // IMPORTANT: pool is per-project-type (backend may scope some statuses).
+      // Always return the pool that came with this board, not the global one.
+      const cachedPool = Array.isArray(c.pool) ? c.pool : null;
+      return {
+        configured: !!c.configured,
+        allowed: c.allowed || [],
+        pool: cachedPool || await this.getPool(),
+      };
     }
     const r = await this.fetchConfig(pt);
     const allowed = Array.isArray(r?.allowed) ? r.allowed : [];
     const configured = !!r?.configured && allowed.length > 0;
-    _cfgCache.set(pt, { expiresAt: _now() + TTL_MS, configured, allowed });
-    return { configured, allowed, pool: Array.isArray(r?.pool) ? r.pool : await this.getPool() };
+    const pool = Array.isArray(r?.pool) ? r.pool : [];
+    _cfgCache.set(pt, { expiresAt: _now() + TTL_MS, configured, allowed, pool });
+    return { configured, allowed, pool: pool.length ? pool : await this.getPool() };
   }
 
   static async saveConfig(projectType, statuses = []) {

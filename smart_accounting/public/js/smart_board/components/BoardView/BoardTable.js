@@ -1001,16 +1001,35 @@ export class BoardTable {
     _getHeaderHelpText(col) {
         const field = String(col?.field || '').trim();
         const viewType = String(this.viewType || '').trim();
-        if (field !== 'custom_lodgement_due_date') return '';
-        if (!['BAS', 'IAS'].includes(viewType)) return '';
-        return [
-            'Quarterly BAS/IAS rollover rule:',
-            '- before 26 May 2026 -> rolls to 26 May 2026',
-            '- from 26 May 2026 to before 25 August 2026 -> rolls to 25 August 2026',
-            '- on or after 25 August 2026 -> rollover stops and a warning is shown',
-            '',
-            'Future yearly quarterly rules will be managed in Settings > Quarterly Due Date Rules (in development).',
-        ].join('\n');
+        if (field === 'custom_lodgement_due_date' && ['BAS', 'IAS'].includes(viewType)) {
+            return [
+                'Quarterly BAS/IAS rollover rule:',
+                '- before 26 May 2026 -> rolls to 26 May 2026',
+                '- from 26 May 2026 to before 25 August 2026 -> rolls to 25 August 2026',
+                '- on or after 25 August 2026 -> rollover stops and a warning is shown',
+                '',
+                'Future yearly quarterly rules will be managed in Automation > Special Rules > Quarterly Due Date Rules (in development).',
+            ].join('\n');
+        }
+        if (field === 'status' && viewType === 'Smart Grants') {
+            return [
+                'R&D workflow statuses (Smart Grants only):',
+                '- Waiting for tech meeting',
+                '- Waiting for tech evidence',
+                '- Preparing R&D report',
+                '- Waiting for report review and signature',
+                '- Preparing application form',
+                '- Waiting for AP review',
+                '- Waiting for financial accounts',
+                '- Preparing R&D exp calculation',
+                '- Waiting for responses to fin queries',
+                '- Final pack prep',
+                '',
+                'This scope is configured in code, not via Status Settings.',
+                'Contact your administrator to change it.',
+            ].join('\n');
+        }
+        return '';
     }
 
     bindBulkSelect() {

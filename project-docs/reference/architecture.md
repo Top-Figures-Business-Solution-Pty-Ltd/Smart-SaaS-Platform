@@ -2,7 +2,7 @@
 # 架构与开发规范（Smart Board + /smart 产品壳）
 
 **项目**：Smart Accounting  
-**最后更新**：2026-04-10  
+**最后更新**：2026-04-21  
 **适用范围**：`apps/smart_accounting/smart_accounting/`（前端 Smart Board + 后端 API/Hook/Override）  
 
 > 这份文档的定位是“**架构契约**”：告诉团队哪些边界是**必须遵守的**，哪些是**建议**，以及如何在不破坏现有功能的前提下持续演进。
@@ -324,18 +324,28 @@ components/pages  →  controllers  →  services  →  backend(api/*)
   - `>= Q4` -> 不再 rollover，并向当前用户显示英文提示
 - 这是一个**阶段性业务规则**，目的是先快速覆盖 quarterly BAS / IAS 的特殊日期
 
-## 9.3 Quarterly rule future upgrade path
+## 9.3 Special Rules 区域与未来升级路径
 
-- 未来不建议长期把季度规则永久硬编码在 action 内部
-- 更推荐的升级方向：
-  - 保留当前 automation action 名称不变
+- 所有"特殊 due date 规则"统一归口到 **Automation Modal → Special Rules** 区域（admin-only）
+  - 位置：Header 打开的 Automation 弹窗左侧边栏，紧随 `Saved Automations` 之下
+  - 目的：把 BAS/IAS 等业务性日期规则从通用 automation 中分离出来，避免污染普通用户视图
+- 当前 Special Rules 子区块（均为占位 / 代码驱动，尚未开放用户配置）：
+  - `Quarterly Due Date Rules`：BAS / IAS + Quarterly，见 §9.2
+  - `Monthly Due Date Rules`：IAS + Monthly，计划中，尚未落地（需要商业侧最终确认后再实现）
+- 未来升级方向（针对 Quarterly rule）：
+  - 保留当前 automation action 名称与 UI 不变
   - 将季度规则提取为独立 resolver / rule provider
-  - 在 `Settings` 中提供 admin-only 的 `Quarterly Due Date Rules` 配置区块
-  - 先读 admin-level 配置
-  - 无配置时回退到系统默认规则
-- 如果未来扩展更多财年 / 更多 quarter，不应继续依赖“当前 due date 猜下一次”，而应逐步转向：
+  - 在 `Automation > Special Rules > Quarterly Due Date Rules` 中提供 admin-only 配置 UI
+  - 运行时优先读取 admin 配置，没有配置时回退到系统默认规则
+- 如果未来扩展更多财年 / 更多 quarter，不应继续依赖"当前 due date 猜下一次"，而应逐步转向：
   - period-driven lookup
   - year / quarter keyed rule table
+- `Monthly Due Date Rules` 的预期语义（待最终确认）：
+  - 作用对象：IAS 月度项目
+  - 触发条件：`custom_target_month` 落在 April / July / October / January
+  - 行为：将 target month 向后推 1 个月（May / August / November / February）
+  - 业务理由：这四个月的客户数据已经被**季度 BAS 申报吸收**，IAS 月度在这些月份本身没有独立工作要做；推一个月等于**跳过重合月**，而不是"与 BAS 合并"或"并到 BAS 做"
+  - 落地原则：作为 Special Rules 下的一个独立子区块，与 Quarterly rule 共存但代码实现各自独立（不共用 resolver）
 
 ---
 
@@ -346,7 +356,29 @@ components/pages  →  controllers  →  services  →  backend(api/*)
 - **虚拟滚动/分页**：大表格必须使用（`BoardTableVirtualization` 等）。
 - **Perf 埋点**：使用 `utils/perf.js` 的 `Perf.timeAsync()` 包裹关键路径。
 
-## 10.1 Sort 能力边界（2026-04）
+## 10.1 Project-type-scoped statuses（2026-04）
+
+- **背景**：全局 status pool 是单一 Property Setter（`Project-status-options`），但并非所有 status 都应该出现在每个 board 上。典型例子是 R&D 工作流状态（`Waiting for tech meeting` 等）只适用于 `Smart Grants`。
+- **契约落点**：`smart_accounting/api/board_settings.py` 里的常量 `_STATUS_PROJECT_TYPE_SCOPE`
+  - key: status 名称（与 pool 中的字符串完全一致）
+  - value: 允许使用该 status 的 `Project Type` 名称集合
+  - **未列入该 map 的 status 视为全局可用**（所有 board 都能用）
+- **生效范围**：由 `_filter_pool_for_project_type(pool, project_type)` 统一执行，作用于：
+  - `get_project_type_status_config` 返回的 `pool` 字段 → 前端 Status Settings 弹窗、Project card 的 status 下拉、Bulk Edit 下拉
+  - `set_project_type_status_config` 的写入校验 → 无法把作用域外的 status 保存进该 board 的 allowed 列表
+- **刻意不做的事**：
+  - 不改 Property Setter pool 本身（automation rule 配置、历史数据保存仍需要全量 pool）
+  - 不在 `automation.py` 的 `_get_project_status_pool` 上加 scope 过滤 —— admin 配置自动化规则时仍能看到全部 status
+  - 不做 UI 配置界面 —— 作用域是产品结构性约束，而不是业务规则
+- **前端配套**：
+  - `services/boardStatusService.js` 的 `_cfgCache` 现在按 `projectType` 缓存 `pool`，不再回退到全局 `getPool()`（见该文件注释）
+  - `components/BoardView/BoardTable.js::_getHeaderHelpText` 在 `viewType === 'Smart Grants'` 时给 Status 列头加 `?` 提示，告知用户该作用域由代码管控
+- **如何新增 / 调整作用域**：
+  1. 在 `_STATUS_PROJECT_TYPE_SCOPE` 里加 / 改 entry
+  2. 如果还需要让该 status 在普通 board 上隐藏，只改这里即可；不需要动 status_admin.py、fixtures 或前端常量
+  3. 若被限定的 status 数量变化，记得同步更新 `BoardTable.js::_getHeaderHelpText` 里对应 viewType 的文本，以及（可选）architecture 文档
+
+## 10.2 Sort 能力边界（2026-04）
 
 - **不要把“可见列”直接等同于“可排序列”**
 - 当前产品口径：Sort 仅开放 **常用且 SQL-safe** 的 Project 字段

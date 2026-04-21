@@ -30,6 +30,7 @@ export class AutomationModal {
     this._root = null;
     this._saving = false;
     this._activeIdx = this.items.length ? 0 : -1;
+    this._activeSpecialKey = '';
     this._savedSearch = '';
     this._logsByAutomation = new Map();
     this._loadingRunsFor = '';
@@ -80,25 +81,29 @@ export class AutomationModal {
     if (this._activeIdx >= this.items.length) this._activeIdx = this.items.length - 1;
 
     const savedRows = this._getFilteredSavedItems();
+    const showSpecial = this._isProbablyAdmin();
     wrap.innerHTML = `
       <div class="sb-auto__layout">
-        <div class="sb-auto__saved">
-          <div class="sb-auto__saved-title">Saved Automations</div>
-          <input
-            class="form-control sb-auto__saved-search"
-            id="sbAutoSavedSearch"
-            type="text"
-            placeholder="Search automation..."
-            value="${escapeHtml(this._savedSearch)}"
-          />
-          <div class="text-muted" style="font-size:12px; margin:8px 0;">${this._savedSummaryText()}</div>
-          <div class="sb-auto__saved-list" id="sbAutoSavedList">
-            ${savedRows.length ? savedRows.map(({ item, idx }) => this._savedItemHTML(item, idx)).join('') : this._emptySavedStateHTML()}
+        <div class="sb-auto__left">
+          <div class="sb-auto__saved">
+            <div class="sb-auto__saved-title">Saved Automations</div>
+            <input
+              class="form-control sb-auto__saved-search"
+              id="sbAutoSavedSearch"
+              type="text"
+              placeholder="Search automation..."
+              value="${escapeHtml(this._savedSearch)}"
+            />
+            <div class="text-muted" style="font-size:12px; margin:8px 0;">${this._savedSummaryText()}</div>
+            <div class="sb-auto__saved-list" id="sbAutoSavedList">
+              ${savedRows.length ? savedRows.map(({ item, idx }) => this._savedItemHTML(item, idx)).join('') : this._emptySavedStateHTML()}
+            </div>
+            <div style="display:flex; justify-content:center; margin-top:8px;">
+              <button class="btn btn-default btn-sm" type="button" id="sbAutoLoadMore" ${this._loadingMoreSaved || !this._hasMoreSavedItems() ? 'disabled' : ''} style="${this._hasMoreSavedItems() ? '' : 'display:none;'}">${this._loadingMoreSaved ? 'Loading...' : 'Load more'}</button>
+            </div>
+            <button class="btn btn-default btn-sm" type="button" id="sbAutoAdd">+ Add Automation</button>
           </div>
-          <div style="display:flex; justify-content:center; margin-top:8px;">
-            <button class="btn btn-default btn-sm" type="button" id="sbAutoLoadMore" ${this._loadingMoreSaved || !this._hasMoreSavedItems() ? 'disabled' : ''} style="${this._hasMoreSavedItems() ? '' : 'display:none;'}">${this._loadingMoreSaved ? 'Loading...' : 'Load more'}</button>
-          </div>
-          <button class="btn btn-default btn-sm" type="button" id="sbAutoAdd">+ Add Automation</button>
+          ${showSpecial ? this._specialRulesSidebarHTML() : ''}
         </div>
         <div class="sb-auto__editor" id="sbAutoEditor">
           ${this._editorHTML()}
@@ -116,6 +121,9 @@ export class AutomationModal {
     wrap.querySelectorAll('.sb-auto__saved-item').forEach((el) => {
       el.addEventListener('click', (e) => this._handleSelectSavedItem(e));
     });
+    wrap.querySelectorAll('.sb-auto__special-item').forEach((el) => {
+      el.addEventListener('click', (e) => this._handleSelectSpecialRule(e));
+    });
     wrap.querySelectorAll('.sb-auto__run-open').forEach((el) => {
       el.addEventListener('click', (e) => this._handleOpenProject(e));
     });
@@ -123,8 +131,8 @@ export class AutomationModal {
       el.addEventListener('click', (e) => this._handleOpenLogs(e));
     });
     const editor = wrap.querySelector('#sbAutoEditor');
-    if (editor) this._bindRuleEvents(editor);
-    this._ensureActiveRunsLoaded();
+    if (editor && !this._activeSpecialKey) this._bindRuleEvents(editor);
+    if (!this._activeSpecialKey) this._ensureActiveRunsLoaded();
   }
 
   _savedItemHTML(item, idx) {
@@ -159,6 +167,9 @@ export class AutomationModal {
   }
 
   _editorHTML() {
+    if (this._activeSpecialKey) {
+      return this._specialRuleDetailHTML(this._activeSpecialKey);
+    }
     if (this._activeIdx < 0 || !this.items[this._activeIdx]) {
       return `
         <div class="sb-automation__empty text-muted">
@@ -167,6 +178,118 @@ export class AutomationModal {
       `;
     }
     return this._ruleHTML(this.items[this._activeIdx], this._activeIdx);
+  }
+
+  // =========================================================================
+  // Special Rules (admin-only placeholders for future configurable rules)
+  // =========================================================================
+
+  _getSpecialRules() {
+    return [
+      {
+        key: 'quarterly-due-dates',
+        name: 'Quarterly Due Date Rules',
+        scope: 'BAS / IAS',
+        status: 'In development',
+      },
+      {
+        key: 'monthly-due-dates',
+        name: 'Monthly Due Date Rules',
+        scope: 'IAS',
+        status: 'Planned',
+      },
+    ];
+  }
+
+  _specialRulesSidebarHTML() {
+    const rules = this._getSpecialRules();
+    const items = rules.map((r) => {
+      const active = r.key === this._activeSpecialKey ? 'is-active' : '';
+      return `
+        <button type="button" class="sb-auto__special-item ${active}" data-key="${escapeHtml(r.key)}">
+          <span class="sb-auto__special-name">${escapeHtml(r.name)}</span>
+          <span class="sb-auto__special-state">${escapeHtml(r.status)}</span>
+        </button>
+      `;
+    }).join('');
+    return `
+      <div class="sb-auto__special">
+        <div class="sb-auto__saved-title">Special Rules</div>
+        <div class="text-muted" style="font-size:12px;">Admin-only, applied by scheduled automations.</div>
+        <div class="sb-auto__special-list">
+          ${items}
+        </div>
+      </div>
+    `;
+  }
+
+  _specialRuleDetailHTML(key) {
+    const rules = this._getSpecialRules();
+    const rule = rules.find((r) => r.key === key);
+    if (!rule) {
+      return `<div class="sb-automation__empty text-muted">Unknown special rule.</div>`;
+    }
+    if (key === 'quarterly-due-dates') {
+      return `
+        <div class="sb-cardlike">
+          <div class="sb-cardlike__title">${escapeHtml(rule.name)}</div>
+          <div class="sb-settings__hint-badge">In development</div>
+          <p class="text-muted" style="margin-top:12px;">
+            Scope: BAS and IAS projects on a Quarterly frequency.
+          </p>
+          <p class="text-muted" style="margin-top:8px;">
+            Current behaviour (built into the <code>Roll Lodgement Due forward by frequency</code> automation action):
+          </p>
+          <ul class="text-muted" style="margin:8px 0 0 18px; padding:0;">
+            <li>Before 26 May 2026 — rolls to 26 May 2026 (FY 2025-26 Q3).</li>
+            <li>From 26 May 2026 up to 25 August 2026 — rolls to 25 August 2026 (FY 2025-26 Q4).</li>
+            <li>On or after 25 August 2026 — rollover stops and a warning is shown to the user.</li>
+          </ul>
+          <p class="text-muted" style="margin-top:12px;">
+            Future versions will let administrators maintain BAS / IAS quarterly due dates per fiscal year from this section, without requiring a code release.
+          </p>
+        </div>
+      `;
+    }
+    if (key === 'monthly-due-dates') {
+      return `
+        <div class="sb-cardlike">
+          <div class="sb-cardlike__title">${escapeHtml(rule.name)}</div>
+          <div class="sb-settings__hint-badge">Planned</div>
+          <p class="text-muted" style="margin-top:12px;">
+            Scope: IAS projects on a Monthly frequency.
+          </p>
+          <p class="text-muted" style="margin-top:8px;">
+            Planned behaviour: when the target month would land in April, July, October, or January, push the target month forward by one (to May, August, November, or February). Those four months are already covered by the quarterly BAS lodgement, so there is no separate IAS monthly work to do — the rule skips them instead of scheduling duplicate work.
+          </p>
+          <p class="text-muted" style="margin-top:8px;">
+            This rule is not active yet. No changes are applied to IAS monthly projects in the current build.
+          </p>
+        </div>
+      `;
+    }
+    return `<div class="sb-automation__empty text-muted">${escapeHtml(rule.name)} — details coming soon.</div>`;
+  }
+
+  _handleSelectSpecialRule(e) {
+    this._syncActiveRuleFromDOM();
+    const key = String(e.currentTarget?.dataset?.key || '').trim();
+    if (!key) return;
+    this._activeSpecialKey = key;
+    this._activeIdx = -1;
+    this._renderList();
+  }
+
+  _isProbablyAdmin() {
+    try {
+      const user = String(frappe?.session?.user || '').trim();
+      if (user === 'Administrator') return true;
+    } catch (e) {}
+    try {
+      const roles = (frappe?.boot?.user?.roles) || frappe?.user_roles || [];
+      if (Array.isArray(roles) && roles.map(String).includes('System Manager')) return true;
+    } catch (e) {}
+    return false;
   }
 
   _ruleHTML(item, idx) {
@@ -467,6 +590,7 @@ export class AutomationModal {
     this._syncActiveRuleFromDOM();
     const idx = parseInt(e.currentTarget?.dataset?.idx, 10);
     if (!Number.isFinite(idx) || idx < 0 || idx >= this.items.length) return;
+    this._activeSpecialKey = '';
     this._activeIdx = idx;
     this._renderList();
   }
@@ -707,6 +831,7 @@ export class AutomationModal {
       execution_count: 0,
     });
     this._savedSearch = '';
+    this._activeSpecialKey = '';
     this._activeIdx = this.items.length - 1;
     this._renderList();
   }

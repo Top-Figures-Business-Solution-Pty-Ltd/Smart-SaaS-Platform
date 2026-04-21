@@ -80,6 +80,19 @@ export const STATUS_COLORS = {
     'Stuck': '#ef4444', // task pool (red)
     'Waiting for client': '#a855f7', // purple
     'R&D': '#06b6d4', // cyan
+
+    // R&D workflow statuses (2026-04)
+    'Waiting for tech meeting': '#c084fc', // light purple
+    'Waiting for tech evidence': '#a78bfa', // lavender
+    'Preparing R&D report': '#0d9488', // teal
+    'Waiting for report review and signature': '#7c3aed', // deep violet
+    'Preparing application form': '#14b8a6', // mint teal
+    'Waiting for AP review': '#6d28d9', // dark purple
+    'Waiting for financial accounts': '#d946ef', // fuchsia
+    'Preparing R&D exp calculation': '#0891b2', // dark cyan
+    'Waiting for responses to fin queries': '#ec4899', // pink
+    'Final pack prep': '#84cc16', // lime (near completion)
+
     'Ready for manager review': '#3b82f6', // blue
     'Review points to be actioned': '#ef4444', // red
     'Ready for partner review': '#6366f1', // indigo

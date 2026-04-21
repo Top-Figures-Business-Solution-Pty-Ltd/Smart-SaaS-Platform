@@ -69,6 +69,45 @@ def _get_project_status_pool() -> list[str]:
 		return []
 
 
+# Project-type-scoped statuses (code-level contract, not user-configurable via UI).
+# Keys: exact status name. Values: set of Project Type names allowed to use that status.
+# Statuses NOT listed here are globally allowed across all Project Types.
+# Rationale: R&D workflow statuses only make sense on Smart Grants boards. Scoping
+# them here prevents them from showing up in Status Settings / status dropdowns of
+# unrelated boards (BAS, IAS, ASIC, TPAR, ...). To change scope, edit this map.
+_STATUS_PROJECT_TYPE_SCOPE: dict[str, set[str]] = {
+	# R&D workflow statuses (2026-04) — Smart Grants only
+	"Waiting for tech meeting": {"Smart Grants"},
+	"Waiting for tech evidence": {"Smart Grants"},
+	"Preparing R&D report": {"Smart Grants"},
+	"Waiting for report review and signature": {"Smart Grants"},
+	"Preparing application form": {"Smart Grants"},
+	"Waiting for AP review": {"Smart Grants"},
+	"Waiting for financial accounts": {"Smart Grants"},
+	"Preparing R&D exp calculation": {"Smart Grants"},
+	"Waiting for responses to fin queries": {"Smart Grants"},
+	"Final pack prep": {"Smart Grants"},
+}
+
+
+def _filter_pool_for_project_type(pool: list[str], project_type: str) -> list[str]:
+	"""
+	Return pool with project-type-scoped statuses removed when they don't match pt.
+	- If pt is empty -> return pool unchanged (global / context-free query).
+	- If pt is given -> drop statuses whose scope set doesn't include pt.
+	"""
+	pt = str(project_type or "").strip()
+	if not pt or not pool:
+		return list(pool or [])
+	out: list[str] = []
+	for s in pool:
+		key = str(s or "").strip()
+		scope = _STATUS_PROJECT_TYPE_SCOPE.get(key)
+		if scope is None or pt in scope:
+			out.append(s)
+	return out
+
+
 def _get_status_config_map() -> dict[str, list[str]]:
 	try:
 		raw = frappe.defaults.get_global_default(DEFAULT_KEY_PROJECT_TYPE_STATUS_CONFIG)
@@ -210,10 +249,16 @@ def get_project_type_status_config(project_type: str | None = None) -> dict:
 	"""
 	_ensure_logged_in()
 	pt = str(project_type or "").strip()
-	pool = _get_project_status_pool()
+	pool = _filter_pool_for_project_type(_get_project_status_pool(), pt)
 	cfg = _get_status_config_map()
 	allowed = cfg.get(pt) if pt else None
 	allowed_list = [str(x).strip() for x in (allowed or []) if str(x).strip()]
+	# Drop any previously-saved entries that are now out of scope for this type
+	# (e.g. admin switched scoping rules, or this board was pre-frozen with a
+	# broader set). The saved config is the source of truth ONLY within scope.
+	if allowed_list and pool:
+		pool_set = set(pool)
+		allowed_list = [s for s in allowed_list if s in pool_set]
 	return {
 		"project_type": pt,
 		"pool": pool,
@@ -247,7 +292,7 @@ def set_project_type_status_config(project_type: str | None = None, statuses: An
 	if not isinstance(val, list):
 		frappe.throw("statuses must be a list")
 
-	pool = _get_project_status_pool()
+	pool = _filter_pool_for_project_type(_get_project_status_pool(), pt)
 	pool_set = set(pool)
 	clean: list[str] = []
 	seen = set()
@@ -255,7 +300,8 @@ def set_project_type_status_config(project_type: str | None = None, statuses: An
 		s = str(x or "").strip()
 		if not s or s in seen:
 			continue
-		# keep only known statuses from pool (avoid typos)
+		# keep only statuses that are in scope for this Project Type
+		# (also blocks typos automatically)
 		if pool_set and s not in pool_set:
 			continue
 		clean.append(s)
