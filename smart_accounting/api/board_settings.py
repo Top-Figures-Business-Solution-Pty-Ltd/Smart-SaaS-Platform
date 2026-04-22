@@ -17,6 +17,12 @@ import frappe
 DEFAULT_KEY_PROJECT_TYPE_ORDER = "smart_accounting_project_type_order"
 DEFAULT_KEY_PROJECT_TYPE_STATUS_CONFIG = "smart_accounting_project_type_status_config"
 
+# Special-rule toggle keys (global defaults). Unset value means "enabled" (default ON).
+_SPECIAL_RULE_KEY_PREFIX = "smart_accounting_special_rule_"
+_SPECIAL_RULE_ALLOWED_KEYS = {
+	"monthly_ias_defer",
+}
+
 
 def _ensure_logged_in() -> None:
 	if frappe.session.user in (None, "", "Guest"):
@@ -332,3 +338,60 @@ def set_project_type_status_config(project_type: str | None = None, statuses: An
 	return {"ok": True, "cleared": False, "saved_count": len(clean)}
 
 
+# ============================================================
+# Special-rule toggles
+# ============================================================
+
+def _normalize_special_rule_key(key: Any) -> str:
+	k = str(key or "").strip().lower().replace("-", "_")
+	if k not in _SPECIAL_RULE_ALLOWED_KEYS:
+		frappe.throw(f"Unknown special rule: {key}")
+	return k
+
+
+def _storage_key_for_special_rule(key: str) -> str:
+	return f"{_SPECIAL_RULE_KEY_PREFIX}{key}"
+
+
+def _coerce_bool_flag(raw: Any, default: bool = True) -> bool:
+	"""Parse a stored flag value. Unset/None -> default (True)."""
+	if raw is None:
+		return default
+	s = str(raw).strip().lower()
+	if not s:
+		return default
+	if s in ("0", "false", "off", "no", "disabled"):
+		return False
+	return True
+
+
+def get_special_rule_enabled(key: str) -> bool:
+	"""Internal helper: read a special-rule flag. Defaults to True when unset."""
+	try:
+		k = _normalize_special_rule_key(key)
+		raw = frappe.defaults.get_global_default(_storage_key_for_special_rule(k))
+	except Exception:
+		return True
+	return _coerce_bool_flag(raw, default=True)
+
+
+@frappe.whitelist()
+def get_special_rule_flag(key: str | None = None) -> dict:
+	"""Return {key, enabled} for a known special rule. Defaults to enabled=True."""
+	_ensure_logged_in()
+	k = _normalize_special_rule_key(key)
+	return {"key": k, "enabled": get_special_rule_enabled(k)}
+
+
+@frappe.whitelist()
+def set_special_rule_flag(key: str | None = None, enabled: Any = None) -> dict:
+	"""Set a special-rule flag. Requires board-settings permission."""
+	_ensure_logged_in()
+	_ensure_can_manage_board_settings()
+	k = _normalize_special_rule_key(key)
+	val = _coerce_bool_flag(enabled, default=True)
+	frappe.defaults.set_global_default(
+		_storage_key_for_special_rule(k),
+		"1" if val else "0",
+	)
+	return {"ok": True, "key": k, "enabled": val}

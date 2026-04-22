@@ -47,6 +47,34 @@ export class BoardSettingsService {
       return [];
     }
   }
+
+  static async getSpecialRuleFlag(key) {
+    try {
+      const r = await frappe.call({
+        method: 'smart_accounting.api.board_settings.get_special_rule_flag',
+        type: 'GET',
+        args: { key },
+      });
+      return r?.message || { key, enabled: true };
+    } catch (e) {
+      notify(`Failed to load special rule flag: ${e?.message || String(e)}`, 'red');
+      throw e;
+    }
+  }
+
+  static async setSpecialRuleFlag(key, enabled) {
+    try {
+      const r = await frappe.call({
+        method: 'smart_accounting.api.board_settings.set_special_rule_flag',
+        type: 'POST',
+        args: { key, enabled: enabled ? 1 : 0 },
+      });
+      return r?.message || { ok: true, key, enabled: !!enabled };
+    } catch (e) {
+      notify(`Failed to save special rule flag: ${e?.message || String(e)}`, 'red');
+      throw e;
+    }
+  }
 }
 
 

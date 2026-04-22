@@ -8,6 +8,8 @@
 import { escapeHtml } from '../../utils/dom.js';
 import { Modal } from '../Common/Modal.js';
 import { AutomationLogService } from '../../services/automationLogService.js';
+import { BoardSettingsService } from '../../services/boardSettingsService.js';
+import { notify } from '../../services/uiAdapter.js';
 
 export class AutomationModal {
   constructor({ meta = {}, items = [], totalCount = 0, pageSize = 50, onLoadMore, onSave, onToggle, onDelete, onOpenProject, onOpenLogs, onClose } = {}) {
@@ -37,6 +39,10 @@ export class AutomationModal {
     this._savedTotalCount = Math.max(Number(totalCount) || 0, this._persistedItemsCount());
     this._savedPageSize = Math.max(1, Number(pageSize) || 50);
     this._loadingMoreSaved = false;
+    // Special-rule flags: { [key]: { enabled: boolean, loaded: boolean, saving: boolean } }
+    this._specialRuleFlags = {
+      'monthly-due-dates': { enabled: true, loaded: false, saving: false },
+    };
   }
 
   open() {
@@ -61,6 +67,9 @@ export class AutomationModal {
     this._root = content;
 
     this._renderList();
+    if (this._isProbablyAdmin()) {
+      this._ensureSpecialRuleFlagLoaded('monthly-due-dates');
+    }
   }
 
   close() {
@@ -124,6 +133,9 @@ export class AutomationModal {
     wrap.querySelectorAll('.sb-auto__special-item').forEach((el) => {
       el.addEventListener('click', (e) => this._handleSelectSpecialRule(e));
     });
+    wrap.querySelectorAll('.sb-auto__special-toggle').forEach((el) => {
+      el.addEventListener('change', (e) => this._handleToggleSpecialRule(e));
+    });
     wrap.querySelectorAll('.sb-auto__run-open').forEach((el) => {
       el.addEventListener('click', (e) => this._handleOpenProject(e));
     });
@@ -185,6 +197,8 @@ export class AutomationModal {
   // =========================================================================
 
   _getSpecialRules() {
+    const monthlyFlag = this._specialRuleFlags?.['monthly-due-dates'];
+    const monthlyStatus = monthlyFlag?.enabled === false ? 'Off' : 'Active';
     return [
       {
         key: 'quarterly-due-dates',
@@ -196,7 +210,7 @@ export class AutomationModal {
         key: 'monthly-due-dates',
         name: 'Monthly Due Date Rules',
         scope: 'IAS',
-        status: 'Planned',
+        status: monthlyStatus,
       },
     ];
   }
@@ -252,18 +266,31 @@ export class AutomationModal {
       `;
     }
     if (key === 'monthly-due-dates') {
+      const flag = this._specialRuleFlags?.['monthly-due-dates'] || { enabled: true, loaded: false, saving: false };
+      const enabled = flag.enabled !== false;
+      const badgeLabel = enabled ? 'Active' : 'Off';
+      const toggleChecked = enabled ? 'checked' : '';
+      const toggleDisabled = flag.saving ? 'disabled' : '';
+      const stateLabel = flag.saving ? 'Saving…' : (enabled ? 'Rule is ON' : 'Rule is OFF');
       return `
         <div class="sb-cardlike">
           <div class="sb-cardlike__title">${escapeHtml(rule.name)}</div>
-          <div class="sb-settings__hint-badge">Planned</div>
+          <div class="sb-settings__hint-badge">${escapeHtml(badgeLabel)}</div>
+          <div style="margin-top:12px; display:flex; align-items:center; gap:10px;">
+            <label class="sb-automation__toggle" style="margin:0;">
+              <input type="checkbox" class="sb-auto__special-toggle" data-key="monthly-due-dates" ${toggleChecked} ${toggleDisabled} />
+              <span class="sb-automation__toggle-label">${escapeHtml(stateLabel)}</span>
+            </label>
+            <span class="text-muted" style="font-size:12px;">Admins can switch this rule off if it misbehaves.</span>
+          </div>
           <p class="text-muted" style="margin-top:12px;">
             Scope: IAS projects on a Monthly frequency.
           </p>
           <p class="text-muted" style="margin-top:8px;">
-            Planned behaviour: when the target month would land in April, July, October, or January, push the target month forward by one (to May, August, November, or February). Those four months are already covered by the quarterly BAS lodgement, so there is no separate IAS monthly work to do — the rule skips them instead of scheduling duplicate work.
+            Behaviour: when an automation would move <code>Target Month</code> or <code>Lodgement Due Date</code> to April, July, October, or January, the rule pushes it forward by one more month (to May, August, November, or February). Those four months are already covered by the quarterly BAS lodgement, so there is no separate IAS monthly work to do — the rule skips them instead of scheduling duplicate work.
           </p>
           <p class="text-muted" style="margin-top:8px;">
-            This rule is not active yet. No changes are applied to IAS monthly projects in the current build.
+            Applies to both the <code>Roll Lodgement Due forward by frequency</code> and <code>Push a date</code> automation actions.
           </p>
         </div>
       `;
@@ -278,6 +305,60 @@ export class AutomationModal {
     this._activeSpecialKey = key;
     this._activeIdx = -1;
     this._renderList();
+    this._ensureSpecialRuleFlagLoaded(key);
+  }
+
+  async _ensureSpecialRuleFlagLoaded(key) {
+    const flag = this._specialRuleFlags?.[key];
+    if (!flag || flag.loaded || flag.loading) return;
+    const backendKey = this._backendKeyForSpecialRule(key);
+    if (!backendKey) return;
+    flag.loading = true;
+    try {
+      const resp = await BoardSettingsService.getSpecialRuleFlag(backendKey);
+      flag.enabled = resp?.enabled !== false;
+      flag.loaded = true;
+    } catch (e) {
+      flag.enabled = true;
+      flag.loaded = true;
+    } finally {
+      flag.loading = false;
+      if (this._activeSpecialKey === key) this._renderList();
+    }
+  }
+
+  _backendKeyForSpecialRule(key) {
+    if (key === 'monthly-due-dates') return 'monthly_ias_defer';
+    return '';
+  }
+
+  async _handleToggleSpecialRule(e) {
+    const el = e?.currentTarget;
+    const key = String(el?.dataset?.key || '').trim();
+    if (!key) return;
+    const flag = this._specialRuleFlags?.[key];
+    if (!flag || flag.saving) {
+      if (el) el.checked = flag?.enabled !== false;
+      return;
+    }
+    const backendKey = this._backendKeyForSpecialRule(key);
+    if (!backendKey) return;
+    const nextEnabled = !!el.checked;
+    const prevEnabled = flag.enabled !== false;
+    flag.enabled = nextEnabled;
+    flag.saving = true;
+    this._renderList();
+    try {
+      const resp = await BoardSettingsService.setSpecialRuleFlag(backendKey, nextEnabled);
+      flag.enabled = resp?.enabled !== false;
+      flag.loaded = true;
+      notify(`${nextEnabled ? 'Enabled' : 'Disabled'} "Monthly Due Date Rules".`, nextEnabled ? 'green' : 'orange');
+    } catch (err) {
+      flag.enabled = prevEnabled;
+    } finally {
+      flag.saving = false;
+      this._renderList();
+    }
   }
 
   _isProbablyAdmin() {

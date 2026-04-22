@@ -549,6 +549,13 @@ class CustomProject(Project):
         else:
             new_date = _roll_date_by_frequency(current_date, freq)
 
+        if (
+            new_date
+            and _is_monthly_ias_project(project_type, freq)
+            and _monthly_ias_defer_enabled()
+        ):
+            new_date = _defer_date_if_in_bas_quarter(new_date)
+
         if new_date and new_date != current_date:
             self.set(target_field, new_date)
             self._record_automation_field_change(auto, "roll_due_date", target_field, current_date, new_date)
@@ -644,30 +651,31 @@ class CustomProject(Project):
         period = str(cfg.get("period") or "1_month").strip().lower()
         if not fieldname:
             return
+        project_type = str(getattr(self, "project_type", "") or "").strip()
+        proj_freq = str(getattr(self, "custom_project_frequency", "") or "").strip()
+        monthly_ias = _is_monthly_ias_project(project_type, proj_freq) and _monthly_ias_defer_enabled()
+
         # Special-case Target Month (Select field): push forward by N months (1..12).
         if fieldname == "custom_target_month":
             if period == "frequency":
-                freq = str(getattr(self, "custom_project_frequency", "") or "").strip()
-                step = _target_month_step_by_frequency(freq)
+                step = _target_month_step_by_frequency(proj_freq)
             else:
                 try:
                     step = int(period)
                 except Exception:
                     step = 0
-            months = [
-                "January", "February", "March", "April", "May", "June",
-                "July", "August", "September", "October", "November", "December",
-            ]
             if step < 1:
                 return
             cur = str(getattr(self, fieldname, "") or "").strip()
             # If current target month is empty/invalid, use current calendar month as base.
-            if cur in months:
-                base_idx = months.index(cur)
+            if cur in _MONTH_NAMES:
+                base_idx = _MONTH_NAMES.index(cur)
             else:
                 base_idx = int(frappe.utils.now_datetime().month) - 1
             next_idx = (base_idx + step) % 12
-            next_month = months[next_idx]
+            next_month = _MONTH_NAMES[next_idx]
+            if monthly_ias:
+                next_month = _defer_target_month_if_in_bas_quarter(next_month)
             self.set(fieldname, next_month)
             self._record_automation_field_change(auto, "push_date", fieldname, cur, next_month)
             return
@@ -695,6 +703,9 @@ class CustomProject(Project):
         elif period == "1_year":
             nd = add_months(d, 12)
             next_d = get_last_day(nd) if d == get_last_day(d) else nd
+
+        if next_d and monthly_ias and fieldname == "custom_lodgement_due_date":
+            next_d = _defer_date_if_in_bas_quarter(next_d)
 
         if next_d and next_d != d:
             self.set(fieldname, next_d)
@@ -1133,6 +1144,59 @@ def _show_quarterly_rollover_limit_message(message: str) -> None:
         frappe.msgprint(msg, title="Quarterly rollover limit", indicator="orange")
     except Exception:
         pass
+
+
+# Months already covered by Quarterly BAS lodgement. IAS Monthly projects that
+# land on these months are pushed forward by one month so we don't schedule
+# duplicate work next to the quarterly BAS.
+_BAS_QUARTER_MONTHS = frozenset({1, 4, 7, 10})
+
+_MONTH_NAMES = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December",
+]
+
+
+def _is_monthly_ias_project(project_type: str, frequency: str) -> bool:
+    pt = str(project_type or "").strip().lower()
+    freq = str(frequency or "").strip().lower()
+    return pt == "ias" and freq == "monthly"
+
+
+def _monthly_ias_defer_enabled() -> bool:
+    """Read the admin-controlled toggle for the IAS Monthly defer rule.
+
+    Defaults to True (rule is ON) when the flag has never been set.
+    """
+    try:
+        from smart_accounting.api.board_settings import get_special_rule_enabled
+        return bool(get_special_rule_enabled("monthly_ias_defer"))
+    except Exception:
+        return True
+
+
+def _defer_date_if_in_bas_quarter(d):
+    """If date lands on a BAS quarter month, push forward by one month (EOM-safe)."""
+    if not d:
+        return d
+    dt = getdate(d)
+    if dt.month not in _BAS_QUARTER_MONTHS:
+        return dt
+    was_eom = dt == get_last_day(dt)
+    nd = add_months(dt, 1)
+    return get_last_day(nd) if was_eom else nd
+
+
+def _defer_target_month_if_in_bas_quarter(month_name: str) -> str:
+    """If Target Month (Select) lands on a BAS quarter month, push forward by one."""
+    s = str(month_name or "").strip()
+    if s not in _MONTH_NAMES:
+        return s
+    idx = _MONTH_NAMES.index(s)
+    month_number = idx + 1
+    if month_number not in _BAS_QUARTER_MONTHS:
+        return s
+    return _MONTH_NAMES[(idx + 1) % 12]
 
 
 def _target_month_step_by_frequency(frequency: str) -> int:
