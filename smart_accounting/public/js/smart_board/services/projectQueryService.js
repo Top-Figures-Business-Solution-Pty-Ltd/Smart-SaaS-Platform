@@ -549,6 +549,33 @@ export class ProjectQueryService {
   }
 
   /**
+   * Return the FULL list of Project names where the current user is a Project
+   * Team Member, the project is active, and Project.status equals `status`.
+   *
+   * The Status Projects view uses this to build an accurate `name IN (...)`
+   * query without depending on the dashboard's paginated `myProjects` cache.
+   * Always call this directly (do NOT derive from `dashboard.myProjects`).
+   */
+  static async getMyProjectNamesByStatus(status) {
+    const s = String(status || '').trim();
+    if (!s) return { names: [], total: 0 };
+    try {
+      const r = await frappe.call({
+        method: 'smart_accounting.api.project_board.get_my_project_names_by_status',
+        args: { status: s },
+      });
+      const names = Array.isArray(r?.message?.names) ? r.message.names : [];
+      const total = Number(r?.message?.total);
+      return {
+        names,
+        total: Number.isFinite(total) ? total : names.length,
+      };
+    } catch (e) {
+      return { names: [], total: 0, error: String(e?.message || e) };
+    }
+  }
+
+  /**
    * 构建筛选条件
    */
   static buildFilters(filters) {

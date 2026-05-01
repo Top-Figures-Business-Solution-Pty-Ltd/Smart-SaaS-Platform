@@ -20,6 +20,7 @@ import { isDesk } from './utils/env.js';
 import { getUrlState, setUrlState } from './utils/urlState.js';
 import { Perf } from './utils/perf.js';
 import { ClientsService } from './services/clientsService.js';
+import { ProjectService } from './services/projectService.js';
 import { sanitizeProjectColumnsConfig } from './utils/deprecatedColumns.js';
 import { exportCurrentClientsCSV, exportCurrentProjectsCSV } from './utils/csvExport.js';
 import {
@@ -258,17 +259,51 @@ export class SmartBoardApp {
             return;
         }
         if (viewType === 'status-projects') {
-            const dash = this.store?.getState?.()?.dashboard || {};
-            let scoped = Array.isArray(dash?.myProjects) ? dash.myProjects : [];
-            if (!scoped.length) {
-                try { await this.store.dispatch('dashboard/fetchMyProjects'); } catch (e) {}
-                const nextDash = this.store?.getState?.()?.dashboard || {};
-                scoped = Array.isArray(nextDash?.myProjects) ? nextDash.myProjects : [];
-            }
+            // Resolve the active status from filter state first (set by openStatusProjects /
+            // URL hydration / search refresh), then fall back to the in-memory marker.
             const stateFilters = this.store?.getState?.()?.filters || {};
+            const statusList = Array.isArray(stateFilters?.status)
+                ? stateFilters.status
+                : (stateFilters?.status ? [stateFilters.status] : []);
+            const statusValue = String(statusList[0] || this._statusProjects || '').trim();
+
+            // Always derive the eligible name list directly from the server, NOT from
+            // dashboard.myProjects (which is a paginated cache and would silently hide
+            // matches whose project_name sorts past the dashboard page boundary).
+            let names = [];
+            if (statusValue) {
+                try {
+                    const r = await ProjectService.getMyProjectNamesByStatus(statusValue);
+                    names = Array.isArray(r?.names) ? r.names : [];
+                } catch (e) {
+                    names = [];
+                }
+            }
+
             const merged = { ...stateFilters };
             merged.fields = ['name', 'project_name', 'customer', 'project_type', 'status', 'modified', 'is_active'];
-            merged.name_in = scoped.map((p) => String(p?.name || '').trim()).filter(Boolean);
+
+            if (!names.length) {
+                // No matching projects for this user/status — feed an unmatchable
+                // sentinel into name_in so the regular projects pipeline returns 0
+                // rows (preserves loading/error/empty UI states from the store).
+                // We MUST NOT pass an empty name_in here: buildFilters drops empty
+                // arrays, which would otherwise leak unrelated projects matching
+                // the status filter alone.
+                merged.name_in = ['__sb_status_projects_no_match__'];
+                await this.store.dispatch('projects/fetchProjects', merged);
+                return;
+            }
+
+            merged.name_in = names;
+            // The status name list is normally small (it equals the dashboard card count).
+            // Make sure the page can hold all of them in a single request so the table is
+            // complete without requiring "Load more" interactions.
+            const wantedLimit = Math.max(100, names.length);
+            const currentLimit = Number(merged.limit);
+            if (!Number.isFinite(currentLimit) || currentLimit < wantedLimit) {
+                merged.limit = wantedLimit;
+            }
             await this.store.dispatch('projects/fetchProjects', merged);
             return;
         }

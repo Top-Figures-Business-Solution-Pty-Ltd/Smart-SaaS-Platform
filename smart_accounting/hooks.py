@@ -45,10 +45,20 @@ override_doctype_class = {
 # }
 
 # Scheduled Tasks
+#
+# IMPORTANT (2026-05): only the hourly entry is scheduled.
+# Reason: previously both `daily` and `hourly` ran the same date_reaches sweep,
+# and at midnight Frappe dispatches the daily and the 00:00 hourly slot at the
+# same time. Two workers would then race past the per-day cache guard and each
+# fire `notify_someone`, producing duplicate in-app notifications for every
+# matching project.
+#
+# `hourly` already runs at 00:00, so it fully covers what the daily entry used
+# to do, and it gives us automatic catch-up if a single hour's run fails. The
+# whitelisted `run_due_date_automations_daily` function is kept in
+# `api/automation.py` for backward compatibility with manual `bench execute`
+# invocations; it is just no longer auto-scheduled.
 scheduler_events = {
-    "daily": [
-        "smart_accounting.api.automation.run_due_date_automations_daily"
-    ],
     "hourly": [
         "smart_accounting.api.automation.run_due_date_automations_hourly"
     ]

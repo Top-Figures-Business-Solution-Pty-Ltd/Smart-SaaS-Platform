@@ -17,6 +17,7 @@ export class ProjectService {
     }
     static async getBoardFiscalStartMonth(projects) { return await ProjectQueryService.getBoardFiscalStartMonth(projects); }
     static async getMyProjectsWithRoles(opts = {}) { return await ProjectQueryService.getMyProjectsWithRoles(opts); }
+    static async getMyProjectNamesByStatus(status) { return await ProjectQueryService.getMyProjectNamesByStatus(status); }
     static async getStats(projectType) { return await ProjectQueryService.getStats(projectType); }
 
     // Commands

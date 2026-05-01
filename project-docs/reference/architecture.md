@@ -309,7 +309,11 @@ components/pages  →  controllers  →  services  →  backend(api/*)
   - `date_reaches`（Date 字段到期）
 - 支持 **复合 Trigger（AND）**：`trigger_config.triggers[]`
 - 日期触发执行路径：
-  - `hooks.py -> scheduler_events.daily -> api.automation.run_due_date_automations_daily`
+  - `hooks.py -> scheduler_events.hourly -> api.automation.run_due_date_automations_hourly`
+  - `hourly` 在 00:00 也会跑，等价于过去的 `daily` 入口；只保留 hourly 是为了避免午夜
+    `daily + hourly` 同时分发导致 `notify_someone` 重复发送
+  - 跨进程去重通过 Redis SETNX 原子声明完成（见 `CustomProject._try_claim_scheduler_rule_today`）
+  - `run_due_date_automations_daily` 函数体保留，仍可通过 `bench execute` 手动触发
 
 ## 9.2 Quarterly BAS / IAS due date rule（2026-04 phase 1）
 

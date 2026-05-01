@@ -369,15 +369,20 @@ class CustomProject(Project):
         for auto in automations:
             run_ctx = None
             try:
-                if ev in {"daily", "hourly"} and self._scheduler_rule_already_fired_today(auto):
+                if not self._trigger_matches(auto, context=context):
                     continue
-                if self._trigger_matches(auto, context=context):
-                    run_ctx = self._start_automation_run_log(auto, context=context)
-                    exec_result = self._execute_actions(auto, run_ctx=run_ctx)
-                    changed_any = bool((exec_result or {}).get("changed_any")) or changed_any
-                    if ev in {"daily", "hourly"}:
-                        self._mark_scheduler_rule_fired_today(auto)
-                    self._finish_automation_run_log(run_ctx, exec_result=exec_result)
+                # Cross-process dedup for scheduler runs.
+                # Must be ATOMIC: the previous "check then later mark" pattern allowed
+                # the daily and hourly workers to both pass the check at midnight
+                # before either had marked the cache, leading to duplicate
+                # `notify_someone` deliveries. We now claim the slot up-front via
+                # an atomic SETNX so only one worker proceeds.
+                if ev in {"daily", "hourly"} and not self._try_claim_scheduler_rule_today(auto):
+                    continue
+                run_ctx = self._start_automation_run_log(auto, context=context)
+                exec_result = self._execute_actions(auto, run_ctx=run_ctx)
+                changed_any = bool((exec_result or {}).get("changed_any")) or changed_any
+                self._finish_automation_run_log(run_ctx, exec_result=exec_result)
             except Exception as e:
                 self._finish_automation_run_log(run_ctx, exec_result=None, failed=True, error_details=str(e))
                 frappe.log_error(
@@ -716,7 +721,58 @@ class CustomProject(Project):
         day_key = str(frappe.utils.today() or "").strip()
         return f"sb:auto:date-trigger:{day_key}:{self.name}:{rule_name}"
 
+    # Slightly over one day so the per-day key naturally rolls and any worker
+    # delayed around midnight cannot re-fire the previous day's slot.
+    _SCHEDULER_RULE_GUARD_TTL_SEC = 60 * 60 * 30
+
+    def _try_claim_scheduler_rule_today(self, auto) -> bool:
+        """
+        Atomically claim today's scheduler-driven run for this (automation, project).
+
+        Why atomic:
+        - The legacy "check, then execute, then mark" sequence was non-atomic.
+          When `daily` and `hourly` schedulers both dispatched at 00:00, two
+          workers could both observe an empty guard, both run actions (e.g.
+          `notify_someone`), and only then mark the cache — producing duplicate
+          notifications. Using SETNX makes the claim itself the synchronization
+          point, so exactly one worker proceeds.
+
+        Returns:
+        - True  -> this worker successfully claimed the slot; proceed.
+        - False -> another worker already holds the claim; skip silently.
+
+        Fail-open behaviour:
+        - If the underlying Redis call raises, we fall back to the legacy
+          non-atomic check + set so date-triggered automations still run when
+          the cache layer is degraded. This intentionally mirrors the prior
+          best-effort semantics rather than blocking critical business rules.
+        """
+        key = self._scheduler_rule_guard_key(auto)
+        ttl = self._SCHEDULER_RULE_GUARD_TTL_SEC
+        try:
+            cache = frappe.cache()
+            try:
+                # `frappe.cache()` returns a RedisWrapper subclass of redis.Redis,
+                # which exposes the standard `set(name, value, nx=..., ex=...)` SETNX
+                # primitive. Use the namespaced key produced by `make_key` so we stay
+                # consistent with `set_value` / `get_value` on the same key.
+                full_key = cache.make_key(key)
+                ok = cache.set(full_key, b"1", nx=True, ex=ttl)
+                # redis-py: returns True on success, None on collision.
+                return bool(ok)
+            except Exception:
+                # Redis-level error: fall back to the legacy non-atomic flow.
+                if self._scheduler_rule_already_fired_today(auto):
+                    return False
+                self._mark_scheduler_rule_fired_today(auto)
+                return True
+        except Exception:
+            # Cache layer entirely unavailable: do not block automation execution.
+            return True
+
     def _scheduler_rule_already_fired_today(self, auto) -> bool:
+        # Kept for backward compatibility with any external callers / future
+        # diagnostics; the runtime now uses _try_claim_scheduler_rule_today.
         try:
             key = self._scheduler_rule_guard_key(auto)
             return bool(frappe.cache().get_value(key))
@@ -724,10 +780,10 @@ class CustomProject(Project):
             return False
 
     def _mark_scheduler_rule_fired_today(self, auto):
+        # Kept for backward compatibility; runtime path uses the atomic claim.
         try:
             key = self._scheduler_rule_guard_key(auto)
-            # Keep slightly over one day to cover delayed workers around midnight.
-            frappe.cache().set_value(key, 1, expires_in_sec=60 * 60 * 30)
+            frappe.cache().set_value(key, 1, expires_in_sec=self._SCHEDULER_RULE_GUARD_TTL_SEC)
         except Exception:
             pass
 
