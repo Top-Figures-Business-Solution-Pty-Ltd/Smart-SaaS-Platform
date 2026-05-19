@@ -10,6 +10,7 @@ import { isDesk } from '../utils/env.js';
 export class ProjectCreateService {
   static _defaultCompany = undefined;
   static _currentFiscalYear = undefined;
+  static _adHocCustomer = undefined;
 
   static async getDefaultCompany() {
     if (this._defaultCompany !== undefined) return this._defaultCompany;
@@ -72,6 +73,65 @@ export class ProjectCreateService {
 
   static async getDefaultFiscalYear() {
     return await this.getCurrentFiscalYear();
+  }
+
+  static async getOrCreateAdHocCustomer() {
+    if (this._adHocCustomer !== undefined) return this._adHocCustomer;
+
+    const customerName = 'Ad-Hoc';
+    const findExisting = async () => {
+      const r = await frappe.call({
+        method: 'frappe.client.get_list',
+        args: {
+          doctype: 'Customer',
+          fields: ['name', 'customer_name'],
+          or_filters: [
+            ['name', '=', customerName],
+            ['customer_name', '=', customerName],
+            ['name', '=', 'ad-hoc'],
+            ['customer_name', '=', 'ad-hoc'],
+          ],
+          order_by: 'creation asc',
+          limit_page_length: 1,
+        }
+      });
+      return String(r?.message?.[0]?.name || '').trim();
+    };
+
+    try {
+      const existing = await findExisting();
+      if (existing) {
+        this._adHocCustomer = existing;
+        return this._adHocCustomer;
+      }
+
+      const created = await frappe.call({
+        method: 'smart_accounting.api.clients.create_client',
+        type: 'POST',
+        args: {
+          payload: {
+            customer_name: customerName,
+            customer_type: 'Company',
+          },
+        },
+      });
+      const createdName = String(created?.message?.item?.name || '').trim();
+      this._adHocCustomer = createdName || await findExisting();
+      if (!this._adHocCustomer) throw new Error('Create Ad-Hoc client failed');
+      return this._adHocCustomer;
+    } catch (e) {
+      // If another user/session created it between lookup and insert, reuse it.
+      try {
+        const existing = await findExisting();
+        if (existing) {
+          this._adHocCustomer = existing;
+          return this._adHocCustomer;
+        }
+      } catch (lookupError) {}
+
+      const msg = getErrorMessage(e) || 'Create Ad-Hoc client failed';
+      throw new Error(msg);
+    }
   }
 
   /**

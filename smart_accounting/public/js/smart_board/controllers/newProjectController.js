@@ -11,6 +11,10 @@ import { isDesk } from '../utils/env.js';
 import { BoardStatusService } from '../services/boardStatusService.js';
 import { getNewProjectModalConfig } from '../utils/moduleConfig.js';
 
+function isAdHocProjectType(value) {
+  return /\bad[\s-]?hoc\b/i.test(String(value || '').trim());
+}
+
 export async function openNewProjectFlow({ app, viewType } = {}) {
   // Desk keeps the existing behavior (open ERPNext form).
   if (isDesk()) {
@@ -33,13 +37,17 @@ export async function openNewProjectFlow({ app, viewType } = {}) {
 
   const formConfig = getNewProjectModalConfig({ moduleKey, currentView });
   const defaultValues = { ...(formConfig?.defaultValues || {}) };
+  const defaultProjectType = defaultValues.project_type || ((currentView === 'client-projects') ? '' : currentView);
+  const isAdHoc = isAdHocProjectType(defaultProjectType);
+
   if (!defaultValues.custom_fiscal_year) {
     defaultValues.custom_fiscal_year = await ProjectCreateService.getCurrentFiscalYear();
   }
-  if (moduleKey === 'grants') {
-    if (!defaultValues.company) {
-      defaultValues.company = await ProjectCreateService.getDefaultCompany();
-    }
+  if (!defaultValues.company && (formConfig?.visibleFields?.company !== false) && isAdHoc) {
+    defaultValues.company = await ProjectCreateService.getDefaultCompany();
+  }
+  if (!defaultValues.customer && !fixedCustomer && isAdHoc) {
+    defaultValues.customer = await ProjectCreateService.getOrCreateAdHocCustomer();
   }
 
   const modal = new NewProjectModal({
@@ -50,7 +58,7 @@ export async function openNewProjectFlow({ app, viewType } = {}) {
       fiscal_year: defaultValues.custom_fiscal_year || stateFilters?.fiscal_year || null,
       company: defaultValues.company || null,
       custom_project_frequency: defaultValues.custom_project_frequency || null,
-      customer: fixedCustomer || null,
+      customer: fixedCustomer || defaultValues.customer || null,
       custom_grants_fy_label: defaultValues.custom_grants_fy_label || null,
     },
     fixedCustomer: fixedCustomer || null,
