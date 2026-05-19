@@ -1467,6 +1467,54 @@ export class BoardTable {
         };
     }
 
+    _buildProjectFetchFieldsForColumns(columnsConfig = []) {
+        const baseFields = [
+            'name',
+            'project_name',
+            'customer',
+            'project_type',
+            'status',
+            'company',
+            'is_active',
+            'modified',
+            'custom_fiscal_year',
+        ];
+        const fields = new Set(baseFields);
+        for (const c of (Array.isArray(columnsConfig) ? columnsConfig : [])) {
+            const f = String(c?.field || '').trim();
+            if (!f || f.startsWith('__sb_')) continue;
+            if (f.startsWith('team:')) {
+                fields.add('custom_team_members');
+                continue;
+            }
+            if (f === 'custom_entity_type') {
+                fields.add('custom_customer_entity');
+                fields.add('custom_entity_type');
+                continue;
+            }
+            fields.add(f);
+        }
+        return Array.from(fields);
+    }
+
+    async _refreshProjectsForVisibleColumns(columnsConfig = [], firstProjectColumn = 'project_name') {
+        if (!this.store?.dispatch) return;
+        const state = this.store?.getState?.() || {};
+        const projectState = state?.projects || {};
+        const currentItems = Array.isArray(projectState?.items) ? projectState.items : [];
+        const filters = {
+            ...(projectState?.lastFilters || {}),
+            first_column: firstProjectColumn || 'project_name',
+            fields: this._buildProjectFetchFieldsForColumns(columnsConfig),
+        };
+        const loadedCount = currentItems.length;
+        const currentLimit = Number(filters.limit);
+        if (loadedCount > 0 && (!Number.isFinite(currentLimit) || currentLimit < loadedCount)) {
+            filters.limit = Math.max(100, loadedCount);
+        }
+        await this.store.dispatch('projects/fetchProjects', filters);
+    }
+
     subscribeToStore() {
         if (!this.store) return;
         
@@ -1821,6 +1869,7 @@ export class BoardTable {
                 })();
                 try {
                     this.store?.commit?.('projects/setFirstColumnAndResort', firstProjectColumn);
+                    await this._refreshProjectsForVisibleColumns(config, firstProjectColumn);
                     this.scheduleRowsUpdate();
                 } catch (e) {}
             },

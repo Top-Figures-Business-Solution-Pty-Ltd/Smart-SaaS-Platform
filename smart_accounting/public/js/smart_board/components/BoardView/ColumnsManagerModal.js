@@ -29,6 +29,7 @@ export class ColumnsManagerModal {
     this._overlay = null;
     this._dragIndex = null;
     this._dropIndex = null;
+    this._saving = false;
   }
 
   open() {
@@ -187,7 +188,8 @@ export class ColumnsManagerModal {
     this._rerenderList();
   }
 
-  _handleSave() {
+  async _handleSave() {
+    if (this._saving) return;
     const out = {};
     for (const s of (this.sections || [])) {
       const enabled = (s.columns || []).filter((c) => c.enabled);
@@ -197,8 +199,19 @@ export class ColumnsManagerModal {
       }
       out[s.key] = enabled;
     }
-    this.onSave(out);
-    this.close();
+
+    const btn = this._modal?._overlay?.querySelector?.('#sbColMgrSave');
+    this._saving = true;
+    if (btn) btn.disabled = true;
+    try {
+      await Promise.resolve(this.onSave(out));
+      this.close();
+    } catch (e) {
+      notify('Save columns failed', 'red');
+    } finally {
+      this._saving = false;
+      if (btn) btn.disabled = false;
+    }
   }
 
   close() {
@@ -207,6 +220,7 @@ export class ColumnsManagerModal {
     this._overlay = null;
     this._dragIndex = null;
     this._dropIndex = null;
+    this._saving = false;
   }
 }
 
