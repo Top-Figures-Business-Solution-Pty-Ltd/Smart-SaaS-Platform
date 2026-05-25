@@ -158,13 +158,13 @@ export function getNewProjectModalConfig({ moduleKey = null, currentView = '' } 
   if (key === 'grants') {
     return {
       visibleFields: {
-        company: false,
+        company: true,
         fiscalYear: false,
         projectType: false,
         frequency: false,
         grantFy: true,
       },
-      requiredFields: ['project_name', 'customer'],
+      requiredFields: ['project_name', 'customer', 'company'],
       defaultValues: {
         project_type: String(currentView || 'Smart Grants').trim() || 'Smart Grants',
         custom_project_frequency: 'One-off',

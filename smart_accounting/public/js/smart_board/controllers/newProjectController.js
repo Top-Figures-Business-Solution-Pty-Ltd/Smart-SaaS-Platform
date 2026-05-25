@@ -43,6 +43,9 @@ export async function openNewProjectFlow({ app, viewType } = {}) {
   if (!defaultValues.custom_fiscal_year) {
     defaultValues.custom_fiscal_year = await ProjectCreateService.getCurrentFiscalYear();
   }
+  if (moduleKey === 'grants' && !defaultValues.company) {
+    defaultValues.company = await ProjectCreateService.getDefaultCompany();
+  }
   if (!defaultValues.company && (formConfig?.visibleFields?.company !== false) && isAdHoc) {
     defaultValues.company = await ProjectCreateService.getDefaultCompany();
   }
