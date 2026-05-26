@@ -94,10 +94,24 @@ def _project_custom_fields() -> list[dict]:
             "insert_after": "custom_grants_state",
         },
         {
+            "fieldname": "custom_grants_type",
+            "label": "Grants Type",
+            "fieldtype": "Select",
+            "options": "R&DTI\nEMDG",
+            "insert_after": "custom_grants_industry_category",
+        },
+        {
+            "fieldname": "custom_grants_priority",
+            "label": "Grants Priority",
+            "fieldtype": "Select",
+            "options": "Urgent\nHigh\nMedium\nLow",
+            "insert_after": "custom_grants_type",
+        },
+        {
             "fieldname": "custom_grants_partner_label",
             "label": "Partner",
             "fieldtype": "Data",
-            "insert_after": "custom_grants_industry_category",
+            "insert_after": "custom_grants_priority",
         },
         {
             "fieldname": "custom_grants_referral_text",

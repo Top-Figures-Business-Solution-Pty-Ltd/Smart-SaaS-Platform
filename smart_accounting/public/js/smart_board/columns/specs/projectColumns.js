@@ -688,6 +688,26 @@ export function makeProjectColumnSpecs() {
         return ed;
       }
     },
+    {
+      field: 'custom_grants_type',
+      isEditable: true,
+      renderCell: ({ project }) => {
+        const v = project?.custom_grants_type;
+        if (!v) return '<span class="text-muted">—</span><span class="sb-afford sb-afford--select">▾</span>';
+        return `${escapeHtml(v)}<span class="sb-afford sb-afford--select">▾</span>`;
+      },
+      renderEditor: ({ cellEl, project, manager, field }) => projectFieldMenuEditor({ cellEl, project, manager, field })
+    },
+    {
+      field: 'custom_grants_priority',
+      isEditable: true,
+      renderCell: ({ project }) => {
+        const v = project?.custom_grants_priority;
+        if (!v) return '<span class="text-muted">—</span><span class="sb-afford sb-afford--select">▾</span>';
+        return `${escapeHtml(v)}<span class="sb-afford sb-afford--select">▾</span>`;
+      },
+      renderEditor: ({ cellEl, project, manager, field }) => projectFieldMenuEditor({ cellEl, project, manager, field })
+    },
 
     // Smart Grants Check columns: TG Tax Agent, Portal Access Received (2026-04)
     // Backend stores int 0/1; UI surfaces them as Yes/No for accountants.

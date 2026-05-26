@@ -170,6 +170,10 @@ export class BoardTable {
     getAvailableColumnDefs(includeHidden = true) {
         const base = getProjectColumnCatalogForModule(PROJECT_COLUMN_CATALOG || [], this.moduleKey, { includeHidden });
 
+        if (String(this.moduleKey || '').trim().toLowerCase() === 'grants' && !includeHidden) {
+            return base;
+        }
+
         // Derived role-based team columns: team:<Role>
         const roles = this._teamRoles || TeamRoleService.peekRoles() || [];
         const derived = roles.map((role) => ({

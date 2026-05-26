@@ -37,6 +37,8 @@ const GRANTS_PROJECT_FIELDS = new Set([
   'custom_grants_deliverer',
   'custom_grants_state',
   'custom_grants_industry_category',
+  'custom_grants_type',
+  'custom_grants_priority',
   'custom_grants_partner_label',
   'custom_grants_referral_text',
   'custom_grants_owner_name',
@@ -105,9 +107,16 @@ export function isProjectColumnAllowed(field, moduleKey = null) {
 }
 
 export function getProjectColumnCatalogForModule(catalog = [], moduleKey = null, { includeHidden = true } = {}) {
+  const key = getModuleKey(moduleKey);
+  const hiddenInGrantsManager = new Set([
+    '__sb_project_monthly_completion',
+    'project_type',
+    'notes',
+  ]);
   return (Array.isArray(catalog) ? catalog : [])
     .filter((c) => includeHidden ? true : !c?.hidden)
-    .filter((c) => isProjectColumnAllowed(c?.field, moduleKey))
+    .filter((c) => includeHidden || key !== 'grants' || !hiddenInGrantsManager.has(String(c?.field || '').trim()))
+    .filter((c) => isProjectColumnAllowed(c?.field, key))
     .map((c) => ({ ...c }));
 }
 
