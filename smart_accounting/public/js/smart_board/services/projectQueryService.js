@@ -82,7 +82,6 @@ export class ProjectQueryService {
       'custom_year_end',
       'custom_grants_fy_label',
       'custom_grants_abn_snapshot',
-      'custom_grants_deliverer',
       'custom_grants_state',
       'custom_grants_industry_category',
       'custom_grants_partner_label',

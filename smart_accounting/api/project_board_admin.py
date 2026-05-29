@@ -446,7 +446,6 @@ def ensure_smart_grants_columns(*, dry_run: bool = True) -> dict:
 	"""
 
 	required_after_abn = [
-		{"field": "custom_grants_deliverer", "label": "Deliverer", "width": 150},
 		{"field": "custom_grants_state", "label": "State", "width": 120},
 		{"field": "custom_grants_industry_category", "label": "Industry", "width": 180},
 	]

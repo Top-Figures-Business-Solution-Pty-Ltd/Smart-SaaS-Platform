@@ -34,7 +34,7 @@ const GRANTS_PROJECT_FIELDS = new Set([
   'project_type',
   'custom_grants_fy_label',
   'custom_grants_abn_snapshot',
-  'custom_grants_deliverer',
+  // (custom_grants_deliverer removed 2026-05)
   'custom_grants_state',
   'custom_grants_industry_category',
   'custom_grants_type',
@@ -129,7 +129,6 @@ export function filterProjectColumnsForModule(columnsConfig = [], moduleKey = nu
 
   if (key === 'grants') {
     const requiredAfterAbn = [
-      { field: 'custom_grants_deliverer', label: 'Deliverer', width: 150 },
       { field: 'custom_grants_state', label: 'State', width: 120 },
       { field: 'custom_grants_industry_category', label: 'Industry', width: 180 },
     ];

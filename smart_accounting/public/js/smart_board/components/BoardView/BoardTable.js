@@ -399,7 +399,6 @@ export class BoardTable {
                 && cfg.some((c, idx) => String(c?.label || '').trim() !== String(normalizedProjectCfg[idx]?.label || '').trim());
             const missingRequiredModuleCols = String(this.moduleKey || '') === 'grants'
                 && [
-                    'custom_grants_deliverer',
                     'custom_grants_state',
                     'custom_grants_industry_category',
                     'custom_grants_address_snapshot',

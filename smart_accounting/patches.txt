@@ -9,3 +9,4 @@ smart_accounting.patches.backfill_board_automation_names
 smart_accounting.patches.migrate_reviewer_to_manager
 smart_accounting.patches.backfill_project_year_end
 smart_accounting.patches.relabel_grant_fy_to_fy_cy
+smart_accounting.patches.drop_grants_deliverer_field

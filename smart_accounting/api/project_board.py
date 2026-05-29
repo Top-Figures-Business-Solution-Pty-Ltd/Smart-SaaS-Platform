@@ -114,7 +114,6 @@ _SORTABLE_PROJECT_FIELDS = {
 	"custom_fiscal_year",
 	"custom_year_end",
 	"custom_grants_fy_label",
-	"custom_grants_deliverer",
 	"custom_grants_state",
 	"custom_grants_industry_category",
 	"custom_grants_partner_label",
