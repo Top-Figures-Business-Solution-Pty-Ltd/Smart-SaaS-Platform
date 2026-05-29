@@ -104,6 +104,7 @@ export const STATUS_COLORS = {
     'Sent to client for signature': '#8b5cf6', // violet
     'Hold': '#64748b', // slate
     'Waiting of payment': '#ca8a04', // dark yellow
+    'Not to Proceed': '#ef4444', // red — engagement will not proceed
     'Completed': '#22c55e', // green
     'Lodged': '#22c55e', // legacy alias
     'Done': '#16a34a', // legacy alias

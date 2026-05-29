@@ -81,18 +81,31 @@ def _get_project_status_pool() -> list[str]:
 # Rationale: R&D workflow statuses only make sense on Smart Grants boards. Scoping
 # them here prevents them from showing up in Status Settings / status dropdowns of
 # unrelated boards (BAS, IAS, ASIC, TPAR, ...). To change scope, edit this map.
+# All Smart Grants boards (the legacy aggregate board + the per-year boards).
+# Statuses scoped to grants should be available on every grants board, not just the
+# legacy "Smart Grants" one.
+SMART_GRANTS_BOARDS: set[str] = {
+	"Smart Grants",
+	"Grants 2024",
+	"Grants 2025",
+	"Grants 2026",
+	"Grants 2027",
+}
+
 _STATUS_PROJECT_TYPE_SCOPE: dict[str, set[str]] = {
-	# R&D workflow statuses (2026-04) — Smart Grants only
-	"Waiting for tech meeting": {"Smart Grants"},
-	"Waiting for tech evidence": {"Smart Grants"},
-	"Preparing R&D report": {"Smart Grants"},
-	"Waiting for report review and signature": {"Smart Grants"},
-	"Preparing application form": {"Smart Grants"},
-	"Waiting for AP review": {"Smart Grants"},
-	"Waiting for financial accounts": {"Smart Grants"},
-	"Preparing R&D exp calculation": {"Smart Grants"},
-	"Waiting for responses to fin queries": {"Smart Grants"},
-	"Final pack prep": {"Smart Grants"},
+	# R&D workflow statuses (2026-04) — Smart Grants boards only
+	"Waiting for tech meeting": SMART_GRANTS_BOARDS,
+	"Waiting for tech evidence": SMART_GRANTS_BOARDS,
+	"Preparing R&D report": SMART_GRANTS_BOARDS,
+	"Waiting for report review and signature": SMART_GRANTS_BOARDS,
+	"Preparing application form": SMART_GRANTS_BOARDS,
+	"Waiting for AP review": SMART_GRANTS_BOARDS,
+	"Waiting for financial accounts": SMART_GRANTS_BOARDS,
+	"Preparing R&D exp calculation": SMART_GRANTS_BOARDS,
+	"Waiting for responses to fin queries": SMART_GRANTS_BOARDS,
+	"Final pack prep": SMART_GRANTS_BOARDS,
+	# Engagement decided not to proceed — Smart Grants boards only (2026-05)
+	"Not to Proceed": SMART_GRANTS_BOARDS,
 }
 
 

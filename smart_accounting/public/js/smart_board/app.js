@@ -49,6 +49,10 @@ export class SmartBoardApp {
             ? runtimeConfig.sidebar_options
             : {};
         const urlState = getUrlState();
+        // Track whether the landing view came from an explicit URL (deep-link / bookmark) vs the
+        // module default. Default landing may be re-pointed (e.g. Smart Grants first board) but an
+        // explicit URL navigation must always be respected.
+        this._viewFromUrl = !!String(urlState?.view || '').trim();
         // 默认先落在 dashboard，避免系统还没加载 Project Type 时误用不存在的 type（例如 ITR）
         this.currentView = urlState?.view || this.initialView || 'dashboard';
         // Only treat URL customer param as meaningful for client-projects view
@@ -614,6 +618,18 @@ export class SmartBoardApp {
         }
         if (!this._isConfiguredViewAllowed(this.currentView)) {
             this.currentView = this._resolveFallbackView();
+        }
+
+        // Smart Grants: the legacy "Smart Grants" aggregate board is being retired, so the default
+        // landing should be the first real (year) board instead. Only re-point the *default*
+        // landing — never an explicit URL navigation — and fall back safely if only the legacy
+        // board exists.
+        if (this.moduleKey === 'grants' && !this._viewFromUrl && this.projectTypes.length) {
+            const landingIsModuleDefault = this.currentView === this.initialView;
+            if (landingIsModuleDefault) {
+                const preferred = this.projectTypes.find(t => t.value !== 'Smart Grants') || this.projectTypes[0];
+                if (preferred?.value) this.currentView = preferred.value;
+            }
         }
 
         // 刷新 Sidebar + Header 标题
