@@ -54,6 +54,8 @@ const GRANTS_PROJECT_FIELDS = new Set([
   // Grants checkbox columns (2026-04)
   'custom_tg_tax_agent',
   'custom_portal_access_received',
+  // Portal access expiry (Date) — Smart Grants only (2026-05)
+  'custom_portal_access_expiry_date',
 ]);
 
 export function getModuleKey(explicitKey = null) {

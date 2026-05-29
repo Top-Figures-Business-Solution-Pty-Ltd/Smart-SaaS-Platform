@@ -145,6 +145,7 @@ export class BoardCell {
             
             case 'custom_lodgement_due_date':
             case 'custom_reset_date':
+            case 'custom_portal_access_expiry_date':
             case 'expected_end_date':
             case 'expected_start_date':
                 return this.formatDate(value);

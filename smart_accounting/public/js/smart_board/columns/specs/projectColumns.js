@@ -615,6 +615,18 @@ export function makeProjectColumnSpecs() {
         return ed;
       }
     },
+
+    // Portal Access Expiry Date - date (Smart Grants)
+    {
+      field: 'custom_portal_access_expiry_date',
+      isEditable: true,
+      renderEditor: ({ cellEl, project, manager, field }) => {
+        const contentEl = cellEl.querySelector('.cell-content') || cellEl;
+        const ed = new InlineDateEditor(contentEl, { initialValue: project?.[field] || '' });
+        mountEditorHelpers(manager, contentEl, ed);
+        return ed;
+      }
+    },
     {
       field: 'custom_ap_submit_date',
       isEditable: true,

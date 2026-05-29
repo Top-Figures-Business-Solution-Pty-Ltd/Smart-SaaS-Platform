@@ -198,6 +198,12 @@ def _project_custom_fields() -> list[dict]:
             "fieldtype": "Data",
             "insert_after": "custom_rebate_amount_text",
         },
+        {
+            "fieldname": "custom_portal_access_expiry_date",
+            "label": "Portal Access Expiry Date",
+            "fieldtype": "Date",
+            "insert_after": "custom_fee_percentage_text",
+        },
     ]
 
 
