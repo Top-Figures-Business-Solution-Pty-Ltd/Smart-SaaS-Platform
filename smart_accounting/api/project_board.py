@@ -2709,3 +2709,148 @@ def search_project_names(
 	return {"names": out[:limit]}
 
 
+# ============================================================
+# Shared default board view (one Shared/default Saved View per Project Type)
+# ============================================================
+
+_SAVED_VIEW_FIELDS = [
+	"name",
+	"title",
+	"project_type",
+	"columns",
+	"filters",
+	"sort_by",
+	"sort_order",
+	"is_default",
+	"owner",
+	"modified",
+	"reference_doctype",
+	"is_active",
+	"scope",
+	"sidebar_order",
+]
+
+
+def _infer_pinned_project_type(view: dict) -> str:
+	"""Mirror of ViewService.inferPinnedProjectType (frontend) for server-side grouping."""
+	pt = str((view or {}).get("project_type") or "").strip()
+	if pt:
+		return pt
+	payload = _parse_json_if_string((view or {}).get("filters"))
+	seq = []
+	if isinstance(payload, dict):
+		ui = payload.get("ui") or {}
+		if isinstance(ui, dict) and ui.get("pinned_project_type"):
+			return str(ui.get("pinned_project_type")).strip()
+		seq = payload.get("filters") or []
+	elif isinstance(payload, list):
+		seq = payload
+	for f in seq:
+		try:
+			if f[0] == "project_type" and f[1] == "=" and f[2]:
+				return str(f[2]).strip()
+		except Exception:
+			pass
+	return ""
+
+
+def _find_shared_default_view(project_type: str) -> dict | None:
+	rows = frappe.get_all(
+		"Saved View",
+		filters={
+			"reference_doctype": "Project",
+			"scope": "Shared",
+			"is_active": 1,
+			"is_default": 1,
+		},
+		fields=_SAVED_VIEW_FIELDS,
+		order_by="modified desc",
+		limit_page_length=500,
+		ignore_permissions=True,
+	)
+	for r in (rows or []):
+		if _infer_pinned_project_type(r) == project_type:
+			return r
+	return None
+
+
+@frappe.whitelist()
+def ensure_default_board_view(
+	project_type: str,
+	fallback_title: str | None = None,
+	columns: Any = None,
+	task_columns: Any = None,
+) -> dict | None:
+	"""
+	Atomically find-or-create THE single Shared/default Saved View for a board (project_type).
+
+	Why: the Smart Board relies on one Shared default Saved View per Project Type so all users
+	see the same columns. Doing find-or-create on the client raced under concurrent first-loads
+	and produced duplicate default views. This serializes creation behind a MySQL named lock so
+	at most one default view per board is ever created.
+	"""
+	_ensure_logged_in()
+	pt = str(project_type or "").strip()
+	if not pt:
+		frappe.throw("project_type is required")
+
+	existing = _find_shared_default_view(pt)
+	if existing:
+		return existing
+
+	lock_name = f"sb_default_view::{pt}"[:64]
+	got_lock = False
+	try:
+		try:
+			row = frappe.db.sql("SELECT GET_LOCK(%s, 5)", (lock_name,))
+			got_lock = bool(row and row[0] and int(row[0][0] or 0) == 1)
+		except Exception:
+			got_lock = False
+
+		# Re-check inside the lock to avoid a race creating a second view.
+		existing = _find_shared_default_view(pt)
+		if existing:
+			return existing
+
+		cols = _parse_json_if_string(columns)
+		tcols = _parse_json_if_string(task_columns)
+		if not isinstance(cols, list):
+			cols = []
+		if not isinstance(tcols, list):
+			tcols = []
+		columns_payload = {"project": cols, "tasks": tcols} if tcols else cols
+
+		doc = frappe.get_doc(
+			{
+				"doctype": "Saved View",
+				"title": str(fallback_title or f"{pt} Board").strip() or f"{pt} Board",
+				"reference_doctype": "Project",
+				"is_active": 1,
+				"scope": "Shared",
+				"sidebar_order": 0,
+				"project_type": pt,
+				"columns": frappe.as_json(columns_payload),
+				"filters": frappe.as_json(
+					{
+						"filters": [["project_type", "=", pt]],
+						"or_filters": [],
+						"search": "",
+						"ui": {"pinned_project_type": pt},
+					}
+				),
+				"sort_by": "modified",
+				"sort_order": "desc",
+				"is_default": 1,
+			}
+		)
+		doc.insert(ignore_permissions=True)
+		frappe.db.commit()
+		return _find_shared_default_view(pt) or doc.as_dict()
+	finally:
+		if got_lock:
+			try:
+				frappe.db.sql("SELECT RELEASE_LOCK(%s)", (lock_name,))
+			except Exception:
+				pass
+
+

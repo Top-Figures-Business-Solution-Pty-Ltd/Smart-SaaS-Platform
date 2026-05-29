@@ -147,42 +147,28 @@ export class ViewService {
      * - 目标：团队共享默认列（不做个人视图隔离）
      */
     static async getOrCreateDefaultView(projectType, { fallbackTitle, fallbackColumns, fallbackTaskColumns } = {}) {
-        const existing = await this.getDefaultView(projectType);
+        const pt = String(projectType || '').trim();
+        const existing = await this.getDefaultView(pt);
         if (existing) return existing;
 
-        // Create a minimal default view
-        const title = fallbackTitle || `${projectType} Board`;
+        // Find-or-create is done server-side (atomic, behind a DB lock) so concurrent first-loads
+        // can never create duplicate Shared/default views for the same board.
         const columns = Array.isArray(fallbackColumns) ? fallbackColumns : [];
         const taskColumns = Array.isArray(fallbackTaskColumns) ? fallbackTaskColumns : [];
-        const columnsPayload = taskColumns.length ? { project: columns, tasks: taskColumns } : columns;
-
         try {
             const response = await frappe.call({
-                method: 'frappe.client.insert',
+                method: 'smart_accounting.api.project_board.ensure_default_board_view',
+                type: 'POST',
                 args: {
-                    doc: {
-                        doctype: 'Saved View',
-                        title,
-                        // v2 schema
-                        reference_doctype: 'Project',
-                        is_active: 1,
-                        scope: 'Shared',
-                        sidebar_order: 0,
-                        project_type: projectType, // legacy (Data/hidden) for compatibility only
-                        columns: this._jsonify(columnsPayload),
-                        filters: this._jsonify({
-                            filters: [['project_type', '=', projectType]],
-                            or_filters: [],
-                            search: '',
-                            ui: { pinned_project_type: projectType }
-                        }),
-                        sort_by: 'modified',
-                        sort_order: 'desc',
-                        is_default: 1
-                    }
+                    project_type: pt,
+                    fallback_title: fallbackTitle || `${pt} Board`,
+                    columns: this._jsonify(columns),
+                    task_columns: this._jsonify(taskColumns),
                 }
             });
-            return response.message || null;
+            const view = response?.message || null;
+            if (pt && view) this._defaultViewCache.set(pt, { ts: Date.now(), view });
+            return view;
         } catch (error) {
             console.error('Failed to create default view:', error);
             frappe.show_alert?.({ message: __('Failed to create default view'), indicator: 'red' });
