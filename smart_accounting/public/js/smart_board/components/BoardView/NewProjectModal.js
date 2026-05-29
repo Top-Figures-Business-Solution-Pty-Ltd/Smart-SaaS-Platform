@@ -38,6 +38,13 @@ export class NewProjectModal {
     const showFrequency = visibleFields.frequency !== false;
     const showGrantFy = visibleFields.grantFy === true;
 
+    // When formConfig provides a fixed list (e.g. Smart Grants year boards), render the
+    // Project Type field as a constrained <select> instead of a free Link search.
+    const projectTypeOptions = Array.isArray(this.formConfig?.projectTypeOptions)
+      ? this.formConfig.projectTypeOptions.map((x) => String(x || '').trim()).filter(Boolean)
+      : [];
+    const useProjectTypeSelect = showProjectType && projectTypeOptions.length > 0;
+
     const content = document.createElement('div');
     const customerRowHTML = this.lockCustomer
       ? `
@@ -83,7 +90,7 @@ export class NewProjectModal {
 
         ${showGrantFy ? `
           <div class="sb-newproj__row">
-            <label class="sb-newproj__label">Grant FY</label>
+            <label class="sb-newproj__label">FY/CY</label>
             <input class="form-control" id="sbNewProjGrantFy" type="text" placeholder="e.g. FY25 / CY2025" />
           </div>
         ` : ''}
@@ -91,7 +98,9 @@ export class NewProjectModal {
         ${showProjectType ? `
           <div class="sb-newproj__row">
             <label class="sb-newproj__label">Project Type</label>
-            <div id="sbNewProjType"></div>
+            ${useProjectTypeSelect
+              ? `<select class="form-control" id="sbNewProjTypeSelect">${projectTypeOptions.map((v) => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('')}</select>`
+              : '<div id="sbNewProjType"></div>'}
           </div>
         ` : '<div id="sbNewProjType" style="display:none;"></div>'}
 
@@ -142,7 +151,16 @@ export class NewProjectModal {
     this._mountLink('sbNewProjCustomer', 'Customer', customerInitial);
     this._mountLink('sbNewProjCompany', 'Company', this.initial.company || null);
     this._mountLink('sbNewProjFiscalYear', 'Fiscal Year', this.initial.custom_fiscal_year || this.initial.fiscal_year || null);
-    this._mountLink('sbNewProjType', 'Project Type', this.initial.project_type || null);
+    if (useProjectTypeSelect) {
+      const ptSel = content.querySelector('#sbNewProjTypeSelect');
+      if (ptSel) {
+        const init = String(this.initial.project_type || '').trim();
+        if (init && projectTypeOptions.includes(init)) ptSel.value = init;
+        ptSel.addEventListener('change', () => this._syncFrequencyForProjectType(ptSel.value, { emptyOnly: false }));
+      }
+    } else {
+      this._mountLink('sbNewProjType', 'Project Type', this.initial.project_type || null);
+    }
 
     // Load current Project metadata/options.
     try { await DoctypeMetaService.getMeta('Project', { force: true }); } catch (e) {}
@@ -259,6 +277,12 @@ export class NewProjectModal {
     return String(input?.value || '').trim();
   }
 
+  _readProjectType() {
+    const sel = this._root?.querySelector?.('#sbNewProjTypeSelect');
+    if (sel) return String(sel.value || '').trim();
+    return this._readValueFromLinkInput('Project Type');
+  }
+
   _readDisplayTextFromLinkInput(doctype) {
     const map = {
       'Customer': '#sbNewProjCustomer',
@@ -307,7 +331,7 @@ export class NewProjectModal {
       company: this._readValueFromLinkInput('Company'),
       custom_fiscal_year: this._readValueFromLinkInput('Fiscal Year'),
       custom_grants_fy_label: String(this._root?.querySelector?.('#sbNewProjGrantFy')?.value || '').trim(),
-      project_type: this._readValueFromLinkInput('Project Type'),
+      project_type: this._readProjectType(),
       custom_project_frequency: String(freqSel?.value || '').trim(),
     };
   }
@@ -346,7 +370,7 @@ export class NewProjectModal {
     const preferred = initial && list.includes(initial) ? initial : '';
     if (preferred) freqSel.value = preferred;
     else freqSel.value = '';
-    this._syncFrequencyForProjectType(this._readValueFromLinkInput('Project Type'), { emptyOnly: true });
+    this._syncFrequencyForProjectType(this._readProjectType(), { emptyOnly: true });
   }
 
   async _handleCreateClient() {
@@ -379,7 +403,7 @@ export class NewProjectModal {
     const company = this._readValueFromLinkInput('Company');
     const custom_fiscal_year = this._readValueFromLinkInput('Fiscal Year');
     const custom_grants_fy_label = String(this._root?.querySelector?.('#sbNewProjGrantFy')?.value || '').trim();
-    const project_type = this._readValueFromLinkInput('Project Type');
+    const project_type = this._readProjectType();
     const custom_project_frequency = String(this._root?.querySelector?.('#sbNewProjFrequency')?.value || '').trim();
 
     const missing = [];
@@ -388,7 +412,7 @@ export class NewProjectModal {
     if (required.has('company') && !company) missing.push('Company');
     if (required.has('custom_fiscal_year') && !custom_fiscal_year) missing.push('Fiscal Year');
     if (required.has('project_type') && !project_type) missing.push('Project Type');
-    if (required.has('custom_grants_fy_label') && !custom_grants_fy_label) missing.push('Grant FY');
+    if (required.has('custom_grants_fy_label') && !custom_grants_fy_label) missing.push('FY/CY');
     if (missing.length) {
       this._setError(`Please fill: ${missing.join(', ')}`);
       return;

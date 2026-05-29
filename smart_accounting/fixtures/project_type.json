@@ -6,5 +6,37 @@
   "modified": "2026-03-13 11:01:13.587619",
   "name": "Smart Grants",
   "project_type": "Smart Grants"
+ },
+ {
+  "description": null,
+  "docstatus": 0,
+  "doctype": "Project Type",
+  "modified": "2026-05-29 14:02:16.339789",
+  "name": "Grants 2024",
+  "project_type": "Grants 2024"
+ },
+ {
+  "description": null,
+  "docstatus": 0,
+  "doctype": "Project Type",
+  "modified": "2026-05-29 14:02:20.887224",
+  "name": "Grants 2025",
+  "project_type": "Grants 2025"
+ },
+ {
+  "description": null,
+  "docstatus": 0,
+  "doctype": "Project Type",
+  "modified": "2026-05-29 14:02:24.919012",
+  "name": "Grants 2026",
+  "project_type": "Grants 2026"
+ },
+ {
+  "description": null,
+  "docstatus": 0,
+  "doctype": "Project Type",
+  "modified": "2026-05-29 14:02:28.980382",
+  "name": "Grants 2027",
+  "project_type": "Grants 2027"
  }
 ]

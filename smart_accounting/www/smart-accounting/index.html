@@ -229,7 +229,7 @@
   window.smart_accounting = window.smart_accounting || {};
   window.smart_accounting.asset_version = "{{ build_version }}";
   window.smart_accounting.module_key = "accounting";
-  window.smart_accounting.excluded_project_types = ["Smart Grants"];
+  window.smart_accounting.excluded_project_types = ["Smart Grants", "Grants 2024", "Grants 2025", "Grants 2026", "Grants 2027"];
   window.smart_accounting.set_shell_avatar = renderShellAvatar;
 
   frappe.call({ method: "smart_accounting.api.profile.get_my_profile" })

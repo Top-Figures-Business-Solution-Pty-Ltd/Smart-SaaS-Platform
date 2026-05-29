@@ -82,7 +82,11 @@ fixtures = [
         "doctype": "Project Type",
         "filters": [
             ["name", "in", [
-                "Smart Grants"
+                "Smart Grants",
+                "Grants 2024",
+                "Grants 2025",
+                "Grants 2026",
+                "Grants 2027"
             ]]
         ]
     },

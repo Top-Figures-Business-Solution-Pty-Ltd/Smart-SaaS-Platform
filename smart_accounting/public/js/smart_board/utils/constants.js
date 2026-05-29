@@ -13,6 +13,10 @@ export const PROJECT_TYPE_ICONS = {
     'R&D Grant': 'clipboard',
     'Grants': 'clipboard',
     'Smart Grants': 'clipboard',
+    'Grants 2024': 'clipboard',
+    'Grants 2025': 'clipboard',
+    'Grants 2026': 'clipboard',
+    'Grants 2027': 'clipboard',
     'SMSF': 'clipboard',
     'Audit': 'clipboard',
     'Financial Statements': 'clipboard'
@@ -166,7 +170,7 @@ export const PROJECT_COLUMN_CATALOG = [
     { field: 'custom_target_month', label: 'Target Month', width: 130 },
     { field: 'custom_fiscal_year', label: 'Fiscal Year', width: 120 },
     { field: 'custom_year_end', label: 'Year End', width: 120 },
-    { field: 'custom_grants_fy_label', label: 'Grant FY', width: 120 },
+    { field: 'custom_grants_fy_label', label: 'FY/CY', width: 120 },
     { field: 'custom_grants_abn_snapshot', label: 'ABN', width: 140 },
     { field: 'custom_grants_deliverer', label: 'Deliverer', width: 150 },
     { field: 'custom_grants_state', label: 'State', width: 120 },
@@ -248,6 +252,34 @@ export function isSortableProjectField(field) {
     return !!f && SORTABLE_PROJECT_FIELDS.has(f);
 }
 
+// Shared default columns for all Smart Grants boards (Smart Grants + per-year boards).
+// Returns a fresh array each call so different boards never share a mutable reference.
+function makeGrantsDefaultColumns() {
+    return [
+        { field: 'project_name', label: 'Company Name', width: 240, frozen: true },
+        { field: 'project_type', label: 'Board', width: 140 },
+        { field: 'custom_grants_fy_label', label: 'FY/CY', width: 120 },
+        { field: 'custom_grants_abn_snapshot', label: 'ABN', width: 140 },
+        { field: 'custom_grants_deliverer', label: 'Deliverer', width: 150 },
+        { field: 'custom_grants_state', label: 'State', width: 120 },
+        { field: 'custom_grants_industry_category', label: 'Industry', width: 180 },
+        { field: 'custom_grants_partner_label', label: 'Partner', width: 140 },
+        { field: 'custom_grants_referral_text', label: 'Referral', width: 160 },
+        { field: 'custom_grants_owner_name', label: 'Responsible', width: 160 },
+        { field: 'custom_grants_contact_name', label: 'Contact', width: 180 },
+        { field: 'custom_grants_primary_communication', label: 'Communication', width: 220 },
+        { field: 'custom_grants_status', label: 'Progress', width: 180 },
+        { field: 'custom_tg_tax_agent', label: 'TG Tax Agent', width: 130 },
+        { field: 'custom_portal_access_received', label: 'Portal Access Received', width: 180 },
+        { field: 'custom_ap_submit_date', label: 'AP Submit', width: 140 },
+        { field: 'custom_industry_approval_date', label: 'Industry Approval', width: 170 },
+        { field: 'custom_tax_lodgement_date', label: 'Tax Lodgement', width: 170 },
+        { field: 'custom_rebate_amount_text', label: 'Rebate', width: 150 },
+        { field: 'custom_fee_percentage_text', label: 'Fee %', width: 130 },
+        { field: 'modified', label: 'Last Updated', width: 160 }
+    ];
+}
+
 // 默认列配置（按 project_type）
 export const DEFAULT_COLUMNS = {
     'ITR': [
@@ -299,28 +331,11 @@ export const DEFAULT_COLUMNS = {
         { field: 'status', label: 'Status', width: 150 },
         { field: 'modified', label: 'Last Updated', width: 160 }
     ],
-    'Smart Grants': [
-        { field: 'project_name', label: 'Company Name', width: 240, frozen: true },
-        { field: 'custom_grants_fy_label', label: 'Grant FY', width: 120 },
-        { field: 'custom_grants_abn_snapshot', label: 'ABN', width: 140 },
-        { field: 'custom_grants_deliverer', label: 'Deliverer', width: 150 },
-        { field: 'custom_grants_state', label: 'State', width: 120 },
-        { field: 'custom_grants_industry_category', label: 'Industry', width: 180 },
-        { field: 'custom_grants_partner_label', label: 'Partner', width: 140 },
-        { field: 'custom_grants_referral_text', label: 'Referral', width: 160 },
-        { field: 'custom_grants_owner_name', label: 'Responsible', width: 160 },
-        { field: 'custom_grants_contact_name', label: 'Contact', width: 180 },
-        { field: 'custom_grants_primary_communication', label: 'Communication', width: 220 },
-        { field: 'custom_grants_status', label: 'Progress', width: 180 },
-        { field: 'custom_tg_tax_agent', label: 'TG Tax Agent', width: 130 },
-        { field: 'custom_portal_access_received', label: 'Portal Access Received', width: 180 },
-        { field: 'custom_ap_submit_date', label: 'AP Submit', width: 140 },
-        { field: 'custom_industry_approval_date', label: 'Industry Approval', width: 170 },
-        { field: 'custom_tax_lodgement_date', label: 'Tax Lodgement', width: 170 },
-        { field: 'custom_rebate_amount_text', label: 'Rebate', width: 150 },
-        { field: 'custom_fee_percentage_text', label: 'Fee %', width: 130 },
-        { field: 'modified', label: 'Last Updated', width: 160 }
-    ],
+    'Smart Grants': makeGrantsDefaultColumns(),
+    'Grants 2024': makeGrantsDefaultColumns(),
+    'Grants 2025': makeGrantsDefaultColumns(),
+    'Grants 2026': makeGrantsDefaultColumns(),
+    'Grants 2027': makeGrantsDefaultColumns(),
     'DEFAULT': [
         { field: 'customer', label: 'Client Name', width: 200, frozen: true },
         { field: 'project_name', label: 'Project Name', width: 250 },

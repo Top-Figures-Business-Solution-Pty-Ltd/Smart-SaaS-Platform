@@ -7,6 +7,13 @@ from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 SMART_ACCOUNTING_ROLE = "Smart Accounting User"
 SMART_GRANTS_ROLE = "Smart Grants User"
 SMART_GRANTS_PROJECT_TYPE = "Smart Grants"
+# Per-year Smart Grants boards. Projects are grouped onto these boards by year.
+SMART_GRANTS_YEAR_BOARDS = (
+    "Grants 2024",
+    "Grants 2025",
+    "Grants 2026",
+    "Grants 2027",
+)
 GRANTS_TEXT_DATE_FIELDS = (
     "custom_ap_submit_date",
     "custom_industry_approval_date",
@@ -44,15 +51,15 @@ def _ensure_role() -> None:
 
 
 def _ensure_project_type() -> None:
-    if frappe.db.exists("Project Type", SMART_GRANTS_PROJECT_TYPE):
-        return
-    doc = frappe.get_doc(
-        {
-            "doctype": "Project Type",
-            "project_type": SMART_GRANTS_PROJECT_TYPE,
-        }
-    )
-    doc.insert(ignore_permissions=True)
+    for pt in (SMART_GRANTS_PROJECT_TYPE, *SMART_GRANTS_YEAR_BOARDS):
+        if frappe.db.exists("Project Type", pt):
+            continue
+        frappe.get_doc(
+            {
+                "doctype": "Project Type",
+                "project_type": pt,
+            }
+        ).insert(ignore_permissions=True)
 
 
 def _project_custom_fields() -> list[dict]:
@@ -65,7 +72,7 @@ def _project_custom_fields() -> list[dict]:
         },
         {
             "fieldname": "custom_grants_fy_label",
-            "label": "Grant FY",
+            "label": "FY/CY",
             "fieldtype": "Data",
             "insert_after": "custom_grants_section",
         },

@@ -99,19 +99,29 @@ export async function openNewProjectFlow({ app, viewType } = {}) {
       const doc = await ProjectCreateService.createProject(finalPayload, {
         requiredFields: formConfig?.requiredFields,
       });
-      notify('Project created', 'green');
+      // If the project was created on a different board than the current one
+      // (Smart Grants lets the user pick a year board), tell them where it landed.
+      const createdType = String(finalPayload.project_type || '').trim();
+      const createdElsewhere = currentView !== 'client-projects'
+        && currentView
+        && createdType
+        && createdType !== currentView;
+      notify(createdElsewhere ? `Project created on ${createdType}` : 'Project created', 'green');
+
       if (currentView === 'client-projects') {
         // Keep client scope and refresh cross-project-type list.
         await app?.loadViewData?.('client-projects');
       } else {
-        // Refresh current board list so newly created row appears and columns/hydration are consistent.
+        // Refresh the CURRENT board (not the created type) so the list stays consistent with
+        // the board the user is looking at. A project created on another year board simply
+        // won't appear here until the user switches to that board.
         const last = store?.getState?.()?.projects?.lastFilters || null;
-        const base = { ...(last || {}), project_type: finalPayload.project_type };
+        const base = { ...(last || {}), project_type: currentView || finalPayload.project_type };
         try {
           await store?.dispatch?.('projects/fetchProjects', base);
         } catch (e) {
-          // fallback: optimistic insert if fetch fails
-          if (doc?.name) store?.commit?.('projects/addProject', doc);
+          // fallback: optimistic insert if fetch fails and it belongs to this board
+          if (doc?.name && !createdElsewhere) store?.commit?.('projects/addProject', doc);
         }
       }
       return doc;

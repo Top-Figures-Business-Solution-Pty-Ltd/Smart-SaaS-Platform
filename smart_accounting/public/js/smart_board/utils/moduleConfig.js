@@ -110,7 +110,6 @@ export function getProjectColumnCatalogForModule(catalog = [], moduleKey = null,
   const key = getModuleKey(moduleKey);
   const hiddenInGrantsManager = new Set([
     '__sb_project_monthly_completion',
-    'project_type',
     'notes',
   ]);
   return (Array.isArray(catalog) ? catalog : [])
@@ -126,7 +125,7 @@ export function filterProjectColumnsForModule(columnsConfig = [], moduleKey = nu
     .filter((c) => isProjectColumnAllowed(c?.field, key))
     .map((c) => ({ ...c }));
 
-  if (key === 'grants' && String(viewType || '').trim() === 'Smart Grants') {
+  if (key === 'grants') {
     const requiredAfterAbn = [
       { field: 'custom_grants_deliverer', label: 'Deliverer', width: 150 },
       { field: 'custom_grants_state', label: 'State', width: 120 },
@@ -165,17 +164,21 @@ export function filterProjectColumnsForModule(columnsConfig = [], moduleKey = nu
 export function getNewProjectModalConfig({ moduleKey = null, currentView = '' } = {}) {
   const key = getModuleKey(moduleKey);
   if (key === 'grants') {
+    // Smart Grants projects are grouped onto per-year boards. The create form lets the
+    // user pick which year board the project belongs to (defaulting to the current year board).
+    const GRANTS_YEAR_BOARDS = ['Grants 2024', 'Grants 2025', 'Grants 2026', 'Grants 2027'];
     return {
       visibleFields: {
         company: true,
         fiscalYear: false,
-        projectType: false,
+        projectType: true,
         frequency: false,
         grantFy: true,
       },
-      requiredFields: ['project_name', 'customer', 'company'],
+      requiredFields: ['project_name', 'customer', 'company', 'project_type'],
+      projectTypeOptions: GRANTS_YEAR_BOARDS,
       defaultValues: {
-        project_type: String(currentView || 'Smart Grants').trim() || 'Smart Grants',
+        project_type: 'Grants 2026',
         custom_project_frequency: 'One-off',
       },
     };
