@@ -383,6 +383,12 @@ class CustomProject(Project):
                         if self._sb_clear_highlight_if_owned(auto):
                             changed_any = True
                     continue
+
+                # Skip idempotent grants highlight re-affirmations: if applying the
+                # automation would not change the row's highlight, do nothing (no log,
+                # no execution-count bump). Keeps scheduler runs cheap and quiet.
+                if auto_module == "grants" and self._sb_grants_action_is_noop(auto):
+                    continue
                 # Cross-process dedup for scheduler runs.
                 # Must be ATOMIC: the previous "check then later mark" pattern allowed
                 # the daily and hourly workers to both pass the check at midnight
@@ -427,6 +433,32 @@ class CustomProject(Project):
         for a in _parse_json_array(auto.get("actions")):
             if isinstance(a, dict) and str(a.get("action_type") or "").strip() == "highlight_row":
                 return True
+        return False
+
+    @staticmethod
+    def _sb_grants_highlight_target(auto):
+        """Return the target highlight color for a highlight_row action, or None."""
+        for a in _parse_json_array(auto.get("actions")):
+            if isinstance(a, dict) and str(a.get("action_type") or "").strip() == "highlight_row":
+                cfg = a.get("config") or {}
+                if isinstance(cfg, str):
+                    cfg = _parse_json(cfg)
+                return str((cfg or {}).get("color") or "").strip() or "#fff3a3"
+        return None
+
+    def _sb_grants_action_is_noop(self, auto) -> bool:
+        """True if executing this grants automation would not change the highlight."""
+        cur = str(getattr(self, "custom_board_row_highlight", "") or "").strip()
+        owner = str(getattr(self, "custom_board_row_highlight_by", "") or "").strip()
+        target = self._sb_grants_highlight_target(auto)
+        if target is not None:
+            return cur == target and owner == str(auto.get("name") or "").strip()
+        has_clear = any(
+            isinstance(a, dict) and str(a.get("action_type") or "").strip() == "clear_highlight"
+            for a in _parse_json_array(auto.get("actions"))
+        )
+        if has_clear:
+            return cur == ""
         return False
 
     def _sb_clear_highlight_if_owned(self, auto) -> bool:

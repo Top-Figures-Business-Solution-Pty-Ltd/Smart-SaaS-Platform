@@ -713,6 +713,72 @@ def run_due_date_automations_hourly() -> dict:
     return {"ok": True, "checked": len(names), "updated": updated}
 
 
+def _has_grants_highlight_automation(autos: list[dict]) -> bool:
+    """True if any enabled grants automation manages a row highlight."""
+    for a in autos or []:
+        tc = _parse_json(a.get("trigger_config"))
+        if not isinstance(tc, dict) or str(tc.get("module") or "").strip() != "grants":
+            continue
+        acts = a.get("actions")
+        if isinstance(acts, str):
+            try:
+                acts = json.loads(acts)
+            except Exception:
+                acts = []
+        for x in acts or []:
+            if isinstance(x, dict) and str(x.get("action_type") or "").strip() in {"highlight_row", "clear_highlight"}:
+                return True
+    return False
+
+
+@frappe.whitelist()
+def run_grants_highlight_automations(event: str = "daily") -> dict:
+    """
+    Scheduler entry for Smart Grants highlight automations.
+
+    Highlight automations are condition-based and idempotent, so we re-evaluate
+    every active Smart Grants project. The CustomProject engine handles module
+    isolation, applies highlights when the date condition holds, and auto-clears
+    (Plan A) when it no longer does. No-op re-affirmations are skipped, so this is
+    cheap to run repeatedly even when nothing changes.
+    """
+    try:
+        from smart_accounting.api.board_settings import SMART_GRANTS_BOARDS
+    except Exception:
+        return {"ok": True, "checked": 0, "updated": 0}
+
+    autos = frappe.get_all(
+        "Board Automation",
+        filters={"enabled": 1},
+        fields=["name", "trigger_type", "trigger_config", "actions"],
+        limit_page_length=1000,
+    )
+    if not _has_grants_highlight_automation(autos):
+        return {"ok": True, "checked": 0, "updated": 0}
+
+    rows = frappe.get_all(
+        "Project",
+        fields=["name"],
+        filters={"is_active": "Yes", "project_type": ["in", list(SMART_GRANTS_BOARDS)]},
+        limit_page_length=20000,
+    )
+    names = [str(r.get("name") or "").strip() for r in (rows or []) if str(r.get("name") or "").strip()]
+    ev = "hourly" if str(event or "").strip() == "hourly" else "daily"
+    updated = 0
+    for name in names:
+        try:
+            doc = frappe.get_doc("Project", name)
+            changed = bool(doc._run_board_automations({"event": ev}))
+            if changed:
+                doc.flags.skip_board_automation = True
+                doc.save(ignore_permissions=True)
+                updated += 1
+        except Exception:
+            continue
+
+    return {"ok": True, "checked": len(names), "updated": updated}
+
+
 @frappe.whitelist()
 def toggle_automation(name: str, enabled: int = 1) -> dict:
     _ensure_logged_in()

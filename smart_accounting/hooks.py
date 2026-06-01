@@ -59,6 +59,11 @@ override_doctype_class = {
 # `api/automation.py` for backward compatibility with manual `bench execute`
 # invocations; it is just no longer auto-scheduled.
 scheduler_events = {
+    "daily": [
+        # Smart Grants highlight automations (date-approaching / date-arrives).
+        # Re-affirms highlights and auto-clears (Plan A) once per day at midnight.
+        "smart_accounting.api.automation.run_grants_highlight_automations"
+    ],
     "hourly": [
         "smart_accounting.api.automation.run_due_date_automations_hourly"
     ]
