@@ -420,6 +420,7 @@ export class SmartBoardApp {
                     'is_active',
                     'modified',
                     'custom_fiscal_year',
+                    'custom_board_row_highlight',
                 ];
                 const fields = new Set(baseFields);
                 for (const c of (cols || [])) {

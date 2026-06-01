@@ -54,9 +54,12 @@ def _coerce_legacy_trigger_type(candidate: str) -> str:
 # Metadata: available trigger / action options
 # ============================================================
 
+# Each trigger/action carries a "modules" tag controlling which Smart Board module
+# (accounting / grants) may use it. Items with no "modules" key are available everywhere.
 TRIGGER_TYPES = {
     "status_change": {
         "label": "Status changes to",
+        "modules": ["accounting"],
         "config_fields": [
             {
                 "key": "to_value",
@@ -68,6 +71,7 @@ TRIGGER_TYPES = {
     },
     "status_is": {
         "label": "Status is",
+        "modules": ["accounting"],
         # Guardrail: state-based trigger is risky as a sole trigger because
         # it may repeatedly match on subsequent saves/scheduler runs.
         "cannot_be_only": True,
@@ -82,6 +86,7 @@ TRIGGER_TYPES = {
     },
     "project_type_is": {
         "label": "Project type is",
+        "modules": ["accounting"],
         "config_fields": [
             {
                 "key": "project_type",
@@ -93,6 +98,7 @@ TRIGGER_TYPES = {
     },
     "date_reaches": {
         "label": "Date reaches",
+        "modules": ["accounting"],
         "config_fields": [
             {
                 "key": "date_field",
@@ -112,16 +118,49 @@ TRIGGER_TYPES = {
             },
         ],
     },
+    # ---- Smart Grants only ----
+    "date_arrives": {
+        "label": "Date arrives",
+        "modules": ["grants"],
+        "config_fields": [
+            {
+                "key": "date_field",
+                "label": "Date Field",
+                "type": "select",
+                "source": "project_date_fields",
+            },
+        ],
+    },
+    "date_approaching": {
+        "label": "Date is approaching",
+        "modules": ["grants"],
+        "config_fields": [
+            {
+                "key": "date_field",
+                "label": "Date Field",
+                "type": "select",
+                "source": "project_date_fields",
+            },
+            {"type": "break"},
+            {"type": "caption", "text": "Highlight from"},
+            {"key": "months", "label": "Months", "type": "number", "default": 0, "suffix": "months"},
+            {"key": "weeks", "label": "Weeks", "type": "number", "default": 0, "suffix": "weeks"},
+            {"key": "days", "label": "Days", "type": "number", "default": 0, "suffix": "days"},
+            {"type": "caption", "text": "before the date"},
+        ],
+    },
 }
 
 # Each action is now a standalone unit (no bundled side-effects).
 ACTION_TYPES = {
     "roll_due_date": {
         "label": "Roll Lodgement Due forward by frequency",
+        "modules": ["accounting"],
         "config_fields": [],  # No user config needed; field is hardcoded to custom_lodgement_due_date
     },
     "reset_status": {
         "label": "Reset status to",
+        "modules": ["accounting"],
         "config_fields": [
             {
                 "key": "reset_to",
@@ -134,6 +173,7 @@ ACTION_TYPES = {
     },
     "notify_someone": {
         "label": "Notify someone",
+        "modules": ["accounting"],
         "config_fields": [
             {
                 "key": "role",
@@ -150,10 +190,12 @@ ACTION_TYPES = {
     },
     "archive_project": {
         "label": "Archive project",
+        "modules": ["accounting"],
         "config_fields": [],
     },
     "push_date": {
         "label": "Push a date",
+        "modules": ["accounting"],
         "config_fields": [
             {
                 "key": "date_field",
@@ -177,7 +219,33 @@ ACTION_TYPES = {
             },
         ],
     },
+    # ---- Smart Grants only ----
+    "highlight_row": {
+        "label": "Highlight row",
+        "modules": ["grants"],
+        "config_fields": [
+            {"key": "color", "label": "Highlight color", "type": "color", "default": "#fff3a3"},
+        ],
+    },
+    "clear_highlight": {
+        "label": "Clear highlight",
+        "modules": ["grants"],
+        "config_fields": [],
+    },
 }
+
+
+def _filter_meta_by_module(d: dict, module_key: str) -> dict:
+    """Keep only trigger/action types available to the given module."""
+    mk = str(module_key or "").strip()
+    if not mk:
+        return dict(d)
+    out = {}
+    for key, cfg in d.items():
+        mods = cfg.get("modules")
+        if not mods or mk in mods:
+            out[key] = cfg
+    return out
 
 
 def _get_project_status_pool() -> list[str]:
@@ -235,12 +303,17 @@ def _get_project_push_date_field_options() -> list[dict]:
 
 
 @frappe.whitelist()
-def get_automation_meta() -> dict:
+def get_automation_meta(module: str | None = None) -> dict:
     """
     Return available trigger types and action types with their config schemas.
+    When `module` ("accounting" / "grants") is given, only items available to
+    that module are returned.
     """
     _ensure_logged_in()
     status_pool = _get_project_status_pool()
+    module_key = str(module or "").strip()
+    trigger_catalog = _filter_meta_by_module(TRIGGER_TYPES, module_key)
+    action_catalog = _filter_meta_by_module(ACTION_TYPES, module_key)
 
     def resolve_fields(config_fields):
         out = []
@@ -262,11 +335,11 @@ def get_automation_meta() -> dict:
         return out
 
     triggers = {}
-    for key, cfg in TRIGGER_TYPES.items():
+    for key, cfg in trigger_catalog.items():
         triggers[key] = {**cfg, "config_fields": resolve_fields(cfg.get("config_fields", []))}
 
     actions = {}
-    for key, cfg in ACTION_TYPES.items():
+    for key, cfg in action_catalog.items():
         actions[key] = {**cfg, "config_fields": resolve_fields(cfg.get("config_fields", []))}
 
     return {"triggers": triggers, "actions": actions}
@@ -277,8 +350,9 @@ def get_automation_meta() -> dict:
 # ============================================================
 
 @frappe.whitelist()
-def get_automations(limit_start: int = 0, limit_page_length: int = 50, search: str | None = None) -> dict:
+def get_automations(limit_start: int = 0, limit_page_length: int = 50, search: str | None = None, module: str | None = None) -> dict:
     _ensure_logged_in()
+    module_key = str(module or "").strip()
     try:
         limit_start = max(0, int(limit_start or 0))
     except Exception:
@@ -336,6 +410,18 @@ def get_automations(limit_start: int = 0, limit_page_length: int = 50, search: s
                 raw_actions = []
         item["actions"] = raw_actions if isinstance(raw_actions, list) else []
 
+    # Module isolation: grants modal only sees grants automations and vice versa.
+    # Untagged / legacy automations are treated as accounting.
+    if module_key:
+        def _item_module(it):
+            tc = it.get("trigger_config") or {}
+            return str((tc or {}).get("module") or "").strip() if isinstance(tc, dict) else ""
+        if module_key == "grants":
+            items = [it for it in items if _item_module(it) == "grants"]
+        else:
+            items = [it for it in items if _item_module(it) != "grants"]
+        total_count = len(items)
+
     return {
         "items": items,
         "meta": {
@@ -354,12 +440,14 @@ def save_automation(
     trigger_type: str = "",
     trigger_config: Any = None,
     actions: Any = None,
+    module: str | None = None,
 ) -> dict:
     """
     Create or update a Board Automation rule.
     actions: JSON array of [{action_type, config}]
     """
     _ensure_logged_in()
+    module_key = str(module or "").strip() or "accounting"
 
     trigger_type = str(trigger_type or "").strip()
     if not trigger_type:
@@ -415,7 +503,7 @@ def save_automation(
                 f'Trigger "{only_type}" cannot be used alone. Please add at least one more trigger.'
             )
     # Persist both for backward compatibility; runtime reads trigger_config.triggers first.
-    tc = {"triggers": clean_triggers}
+    tc = {"triggers": clean_triggers, "module": module_key}
     trigger_type = clean_triggers[0]["trigger_type"]
     persisted_trigger_type = _coerce_legacy_trigger_type(trigger_type)
 

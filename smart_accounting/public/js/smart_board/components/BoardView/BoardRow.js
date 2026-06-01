@@ -21,12 +21,18 @@ export class BoardRow {
         }).join('');
 
         const selected = this.isSelected ? !!this.isSelected(this.project) : false;
-        
+
+        const rawHighlight = String(this.project.custom_board_row_highlight || '').trim();
+        const highlight = /^#[0-9a-fA-F]{3,8}$/.test(rawHighlight) ? rawHighlight : '';
+        const highlightClass = highlight ? ' board-table-row--highlight' : '';
+        const highlightStyle = highlight ? ` style="--sb-row-hl:${highlight};"` : '';
+
         return `
             <tr 
-                class="board-table-row ${selected ? 'selected' : ''}" 
+                class="board-table-row ${selected ? 'selected' : ''}${highlightClass}" 
                 data-project-name="${this.project.name}"
                 data-index="${this.index}"
+                ${highlightStyle}
             >
                 ${cells}
             </tr>

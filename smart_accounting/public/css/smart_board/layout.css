@@ -539,6 +539,73 @@
 .sb-automation__row .sb-auto__name {
     max-width: 420px;
 }
+/* Config fields drop onto their own line(s) under the trigger/action type select. */
+.sb-auto__config-fields {
+    flex-basis: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 10px;
+    margin-top: 8px;
+    padding: 10px 12px;
+    margin-left: 52px;
+    background: var(--smart-board-surface-muted, #f6f7fb);
+    border: 1px solid var(--smart-board-border, #e6e9ef);
+    border-radius: 8px;
+}
+/* Forces following fields onto a new line within the config block. */
+.sb-auto__config-break {
+    flex-basis: 100%;
+    height: 0;
+    margin: 0;
+}
+/* Inline caption between config fields, e.g. "highlight from ... before the date" */
+.sb-auto__config-caption {
+    font-size: 12px;
+    color: var(--smart-board-text-muted, #676879);
+    white-space: nowrap;
+}
+/* Compact number field with trailing unit (months / weeks / days) */
+.sb-auto__config-num {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    flex: 0 0 auto;
+}
+.sb-automation__row .sb-auto__config-num .form-control,
+.sb-automation__row .sb-auto__config-num-input {
+    flex: 0 0 auto;
+    width: 56px;
+    min-width: 56px;
+    max-width: 56px;
+    text-align: center;
+    padding: 8px 6px;
+}
+.sb-auto__config-unit {
+    font-size: 12px;
+    color: var(--smart-board-text-muted, #676879);
+}
+/* Color picker config */
+.sb-auto__config-color {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex: 0 0 auto;
+}
+.sb-automation__row .sb-auto__config-color-input {
+    flex: 0 0 auto;
+    width: 40px;
+    min-width: 40px;
+    max-width: 40px;
+    height: 32px;
+    padding: 2px;
+    border-radius: 8px;
+    cursor: pointer;
+}
+.sb-auto__config-color-label {
+    font-size: 12px;
+    color: var(--smart-board-text-muted, #676879);
+}
 .sb-automation__rule-footer {
     display: flex;
     align-items: center;

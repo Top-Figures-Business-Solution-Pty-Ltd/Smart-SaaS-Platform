@@ -366,10 +366,22 @@ class CustomProject(Project):
 
         changed_any = False
         ev = str((context or {}).get("event") or "validate").strip()
+        proj_is_grants = self._sb_is_grants_board()
         for auto in automations:
             run_ctx = None
             try:
+                # Module isolation: grants automations run only on grants boards,
+                # accounting (and legacy/untagged) automations run only elsewhere.
+                auto_module = self._sb_automation_module(auto)
+                if (auto_module == "grants") != proj_is_grants:
+                    continue
+
                 if not self._trigger_matches(auto, context=context):
+                    # Plan A auto-cancel: if a grants highlight automation no longer
+                    # matches but it previously highlighted this row, clear it.
+                    if auto_module == "grants" and self._sb_automation_has_highlight(auto):
+                        if self._sb_clear_highlight_if_owned(auto):
+                            changed_any = True
                     continue
                 # Cross-process dedup for scheduler runs.
                 # Must be ATOMIC: the previous "check then later mark" pattern allowed
@@ -377,7 +389,10 @@ class CustomProject(Project):
                 # before either had marked the cache, leading to duplicate
                 # `notify_someone` deliveries. We now claim the slot up-front via
                 # an atomic SETNX so only one worker proceeds.
-                if ev in {"daily", "hourly"} and not self._try_claim_scheduler_rule_today(auto):
+                # Highlight automations are idempotent and condition-based, so they
+                # are exempt from the once-per-day claim (they may re-affirm daily).
+                if ev in {"daily", "hourly"} and not self._sb_automation_has_highlight(auto) \
+                        and not self._try_claim_scheduler_rule_today(auto):
                     continue
                 run_ctx = self._start_automation_run_log(auto, context=context)
                 exec_result = self._execute_actions(auto, run_ctx=run_ctx)
@@ -390,6 +405,41 @@ class CustomProject(Project):
                     "Board Automation Error",
                 )
         return changed_any
+
+    def _sb_is_grants_board(self) -> bool:
+        """True when this project belongs to one of the Smart Grants boards."""
+        try:
+            from smart_accounting.api.board_settings import SMART_GRANTS_BOARDS
+        except Exception:
+            SMART_GRANTS_BOARDS = set()
+        pt = str(getattr(self, "project_type", "") or "").strip()
+        return pt in SMART_GRANTS_BOARDS
+
+    @staticmethod
+    def _sb_automation_module(auto) -> str:
+        """Resolve an automation's owning module ('grants' / 'accounting')."""
+        tc = _parse_json(auto.get("trigger_config"))
+        mod = str((tc or {}).get("module") or "").strip() if isinstance(tc, dict) else ""
+        return "grants" if mod == "grants" else "accounting"
+
+    @staticmethod
+    def _sb_automation_has_highlight(auto) -> bool:
+        for a in _parse_json_array(auto.get("actions")):
+            if isinstance(a, dict) and str(a.get("action_type") or "").strip() == "highlight_row":
+                return True
+        return False
+
+    def _sb_clear_highlight_if_owned(self, auto) -> bool:
+        """Clear the row highlight only if it was set by this automation (Plan A)."""
+        owner = str(getattr(self, "custom_board_row_highlight_by", "") or "").strip()
+        if owner and owner != str(auto.get("name") or "").strip():
+            return False
+        current = str(getattr(self, "custom_board_row_highlight", "") or "").strip()
+        if not current and not owner:
+            return False
+        self.custom_board_row_highlight = ""
+        self.custom_board_row_highlight_by = ""
+        return True
 
     def _trigger_matches(self, auto, context=None):
         """Check if this automation's trigger matches the current document change.
@@ -465,6 +515,43 @@ class CustomProject(Project):
                 return d <= today_d
             return d == today_d
 
+        # ---- Smart Grants: condition-based, idempotent triggers ----
+        if trigger_type == "date_arrives":
+            field = str(config.get("date_field") or "").strip()
+            if not field:
+                return False
+            val = getattr(self, field, None)
+            if not val:
+                return False
+            # True on or after the target date (stays true while overdue).
+            return getdate(val) <= getdate(frappe.utils.today())
+
+        if trigger_type == "date_approaching":
+            field = str(config.get("date_field") or "").strip()
+            if not field:
+                return False
+            val = getattr(self, field, None)
+            if not val:
+                return False
+
+            def _to_int(x):
+                try:
+                    return int(float(str(x).strip() or 0))
+                except Exception:
+                    return 0
+
+            months = _to_int(config.get("months"))
+            weeks = _to_int(config.get("weeks"))
+            days = _to_int(config.get("days"))
+            target = getdate(val)
+            lead = target
+            if months:
+                lead = add_months(lead, -months)
+            if weeks or days:
+                lead = add_days(lead, -(weeks * 7 + days))
+            # True once we are inside the lead window (and stays true while overdue).
+            return getdate(frappe.utils.today()) >= getdate(lead)
+
         return False
 
     def _execute_actions(self, auto, run_ctx=None):
@@ -503,6 +590,14 @@ class CustomProject(Project):
                     self._action_push_date(config, auto)
                     next_val = getattr(self, prev_field, None) if prev_field else None
                     changed_any = (next_val != prev_val) or changed_any
+                elif action_type == "highlight_row":
+                    prev = str(getattr(self, "custom_board_row_highlight", "") or "").strip()
+                    self._action_highlight_row(config, auto)
+                    changed_any = (str(getattr(self, "custom_board_row_highlight", "") or "").strip() != prev) or changed_any
+                elif action_type == "clear_highlight":
+                    prev = str(getattr(self, "custom_board_row_highlight", "") or "").strip()
+                    self._action_clear_highlight(config, auto)
+                    changed_any = (str(getattr(self, "custom_board_row_highlight", "") or "").strip() != prev) or changed_any
                 else:
                     frappe.logger("smart_accounting").warning(
                         "Board Automation %s: unknown action_type '%s'", auto.get("name"), action_type
@@ -648,6 +743,26 @@ class CustomProject(Project):
         # Keep source context for activity log formatting in this save cycle.
         self._sb_archive_source = "automation"
         self._sb_archive_rule = str((auto or {}).get("automation_name") or (auto or {}).get("name") or "").strip()
+
+    def _action_highlight_row(self, config, auto):
+        """Action (Smart Grants): highlight this project's board row with a color."""
+        color = str((config or {}).get("color") or "").strip() or "#fff3a3"
+        owner = str((auto or {}).get("name") or "").strip()
+        prev = str(getattr(self, "custom_board_row_highlight", "") or "").strip()
+        if prev == color and str(getattr(self, "custom_board_row_highlight_by", "") or "").strip() == owner:
+            return
+        self.custom_board_row_highlight = color
+        self.custom_board_row_highlight_by = owner
+        self._record_automation_field_change(auto, "highlight_row", "custom_board_row_highlight", prev, color)
+
+    def _action_clear_highlight(self, config, auto):
+        """Action (Smart Grants): remove this project's board row highlight."""
+        prev = str(getattr(self, "custom_board_row_highlight", "") or "").strip()
+        if not prev and not str(getattr(self, "custom_board_row_highlight_by", "") or "").strip():
+            return
+        self.custom_board_row_highlight = ""
+        self.custom_board_row_highlight_by = ""
+        self._record_automation_field_change(auto, "clear_highlight", "custom_board_row_highlight", prev, "")
 
     def _action_push_date(self, config, auto):
         """Action: push selected Project date field by selected period."""

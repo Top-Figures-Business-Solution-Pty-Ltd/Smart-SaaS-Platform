@@ -520,8 +520,8 @@ export class AutomationModal {
           <option value="" disabled ${!triggerType ? 'selected' : ''}>Select trigger</option>
           ${triggerOpts}
         </select>
-        ${configHTML}
         ${removeBtn}
+        ${configHTML ? `<div class="sb-auto__config-fields">${configHTML}</div>` : ''}
       </div>
     `;
   }
@@ -550,8 +550,8 @@ export class AutomationModal {
           <option value="" disabled ${!actionType ? 'selected' : ''}>Select action</option>
           ${actionOpts}
         </select>
-        ${configHTML}
         ${removeBtn}
+        ${configHTML ? `<div class="sb-auto__config-fields">${configHTML}</div>` : ''}
       </div>
     `;
   }
@@ -592,6 +592,14 @@ export class AutomationModal {
       const currentVal = config?.[key] ?? cf.default ?? '';
       const id = `${prefix}_${key}`;
 
+      if (cf.type === 'break') {
+        return `<span class="sb-auto__config-break" aria-hidden="true"></span>`;
+      }
+
+      if (cf.type === 'caption') {
+        return `<span class="sb-auto__config-caption">${escapeHtml(cf.text || cf.label || '')}</span>`;
+      }
+
       if (cf.type === 'select' && Array.isArray(cf.options)) {
         const opts = cf.options.map((o) => {
           const val = typeof o === 'string' ? o : (o.value || '');
@@ -603,6 +611,30 @@ export class AutomationModal {
             <option value="" disabled ${!currentVal ? 'selected' : ''}>${escapeHtml(cf.label || key)}</option>
             ${opts}
           </select>
+        `;
+      }
+
+      if (cf.type === 'color') {
+        const colorVal = /^#[0-9a-fA-F]{3,8}$/.test(String(currentVal)) ? String(currentVal) : '#fff3a3';
+        return `
+          <span class="sb-auto__config-color" title="${escapeHtml(cf.label || key)}">
+            <input class="sb-auto__config sb-auto__config-color-input" type="color"
+              data-prefix="${escapeHtml(prefix)}" data-key="${escapeHtml(key)}" id="${escapeHtml(id)}"
+              value="${escapeHtml(colorVal)}" aria-label="${escapeHtml(cf.label || key)}" />
+            <span class="sb-auto__config-color-label">${escapeHtml(cf.label || key)}</span>
+          </span>
+        `;
+      }
+
+      if (cf.type === 'number') {
+        const suffix = String(cf.suffix || '').trim();
+        return `
+          <span class="sb-auto__config-num" title="${escapeHtml(cf.label || key)}">
+            <input class="form-control sb-auto__config sb-auto__config-num-input" type="number" min="0" step="1"
+              data-prefix="${escapeHtml(prefix)}" data-key="${escapeHtml(key)}" id="${escapeHtml(id)}"
+              placeholder="0" value="${escapeHtml(String(currentVal))}" />
+            ${suffix ? `<span class="sb-auto__config-unit">${escapeHtml(suffix)}</span>` : ''}
+          </span>
         `;
       }
 

@@ -6,11 +6,12 @@ import { AutomationService } from '../services/automationService.js';
 import { AutomationModal } from '../components/BoardView/AutomationModal.js';
 import { notify } from '../services/uiAdapter.js';
 
-export async function openAutomationFlow() {
-  // Load meta + existing rules in parallel
+export async function openAutomationFlow({ moduleKey = '' } = {}) {
+  const module = String(moduleKey || '').trim();
+  // Load meta + existing rules in parallel (scoped to the active module)
   const [meta, automationRes] = await Promise.all([
-    AutomationService.getMeta(),
-    AutomationService.getAutomations({ limit: 50 }),
+    AutomationService.getMeta(module),
+    AutomationService.getAutomations({ limit: 50, module }),
   ]);
   const items = Array.isArray(automationRes?.items) ? automationRes.items : [];
   const totalCount = Number(automationRes?.meta?.total_count || items.length || 0);
@@ -21,11 +22,11 @@ export async function openAutomationFlow() {
     totalCount,
     pageSize: 50,
     onLoadMore: async ({ offset, limit, search } = {}) => {
-      return await AutomationService.getAutomations({ limitStart: offset, limit, search });
+      return await AutomationService.getAutomations({ limitStart: offset, limit, search, module });
     },
     onSave: async (rule) => {
       try {
-        const result = await AutomationService.saveAutomation(rule);
+        const result = await AutomationService.saveAutomation({ ...rule, module });
         notify('Automation saved', 'green');
         return result;
       } catch (e) {

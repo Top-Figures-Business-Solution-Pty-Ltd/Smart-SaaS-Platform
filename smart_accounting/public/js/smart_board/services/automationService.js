@@ -10,15 +10,19 @@ export class AutomationService {
   /**
    * Get metadata: available trigger types, action types, and their config schemas.
    */
-  static async getMeta() {
-    const r = await frappe.call({ method: `${API_BASE}.get_automation_meta`, quiet: true });
+  static async getMeta(module = '') {
+    const r = await frappe.call({
+      method: `${API_BASE}.get_automation_meta`,
+      quiet: true,
+      args: { module: String(module || '') },
+    });
     return r?.message || { triggers: {}, actions: {} };
   }
 
   /**
    * List all automation rules.
    */
-  static async getAutomations({ limitStart = 0, limit = 50, search = '' } = {}) {
+  static async getAutomations({ limitStart = 0, limit = 50, search = '', module = '' } = {}) {
     const r = await frappe.call({
       method: `${API_BASE}.get_automations`,
       quiet: true,
@@ -26,6 +30,7 @@ export class AutomationService {
         limit_start: Math.max(0, Number(limitStart) || 0),
         limit_page_length: Math.max(1, Number(limit) || 50),
         search: String(search || ''),
+        module: String(module || ''),
       },
     });
     return {
@@ -38,7 +43,7 @@ export class AutomationService {
    * Create or update an automation rule.
    * actions: array of { action_type, config }
    */
-  static async saveAutomation({ name, enabled, automation_name, trigger_type, trigger_config, actions } = {}) {
+  static async saveAutomation({ name, enabled, automation_name, trigger_type, trigger_config, actions, module = '' } = {}) {
     const r = await frappe.call({
       method: `${API_BASE}.save_automation`,
       quiet: true,
@@ -49,6 +54,7 @@ export class AutomationService {
         trigger_type,
         trigger_config: typeof trigger_config === 'string' ? trigger_config : JSON.stringify(trigger_config || {}),
         actions: typeof actions === 'string' ? actions : JSON.stringify(actions || []),
+        module: String(module || ''),
       },
     });
     return r?.message || {};

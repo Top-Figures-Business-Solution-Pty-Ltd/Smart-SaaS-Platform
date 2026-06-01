@@ -21,7 +21,7 @@ export async function handleHeaderAction(app, action, data) {
     case 'sort':
       return app?.showSortDialog?.();
     case 'automation':
-      return openAutomationFlow();
+      return openAutomationFlow({ moduleKey: app?.moduleKey || app?.module || '' });
     case 'export_projects_csv':
       return app?.exportCurrentProjectsCSV?.();
     case 'export_clients_csv':

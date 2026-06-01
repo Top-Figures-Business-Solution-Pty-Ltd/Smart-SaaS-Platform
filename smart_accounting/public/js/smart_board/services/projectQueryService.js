@@ -105,6 +105,7 @@ export class ProjectQueryService {
       'custom_lodgeit_status',
       'custom_company_agent_status',
       'custom_xeroquickbooks_status',
+      'custom_board_row_highlight',
     ];
 
     const minimalFields = [

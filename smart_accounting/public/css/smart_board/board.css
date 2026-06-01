@@ -778,6 +778,19 @@
     background: var(--smart-board-primary-50);
 }
 
+/* Automation-driven row highlight (Smart Grants). Color comes from the
+   automation config via the inline --sb-row-hl custom property. */
+.board-table > tbody > tr.board-table-row--highlight > td {
+    background-color: var(--sb-row-hl, #fff3a3) !important;
+}
+.board-table > tbody > tr.board-table-row--highlight > td.frozen {
+    background-color: var(--sb-row-hl, #fff3a3) !important;
+}
+.board-table > tbody > tr.board-table-row--highlight:hover > td,
+.board-table > tbody > tr.board-table-row--highlight:hover > td.frozen {
+    filter: brightness(0.97);
+}
+
 .board-table > tbody > tr > td.editable {
     cursor: pointer;
 }

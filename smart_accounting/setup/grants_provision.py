@@ -198,6 +198,25 @@ def _project_custom_fields() -> list[dict]:
             "fieldtype": "Date",
             "insert_after": "custom_fee_percentage_text",
         },
+        # Board row highlight (driven by Smart Grants automations). Hidden on the form;
+        # stores the highlight color and the automation that owns it (for Plan A auto-cancel).
+        {
+            "fieldname": "custom_board_row_highlight",
+            "label": "Board Row Highlight",
+            "fieldtype": "Data",
+            "insert_after": "custom_portal_access_expiry_date",
+            "hidden": 1,
+            "no_copy": 1,
+        },
+        {
+            "fieldname": "custom_board_row_highlight_by",
+            "label": "Board Row Highlight Owner",
+            "fieldtype": "Data",
+            "insert_after": "custom_board_row_highlight",
+            "hidden": 1,
+            "read_only": 1,
+            "no_copy": 1,
+        },
     ]
 
 

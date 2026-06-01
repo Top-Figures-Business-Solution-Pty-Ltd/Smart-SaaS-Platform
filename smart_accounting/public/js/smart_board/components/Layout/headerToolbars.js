@@ -7,7 +7,6 @@
 export function renderHeaderActions(view, { isBoardView, moduleKey }) {
     const isBoard = !!isBoardView;
     const isArchived = String(view || '').trim() === 'archived-projects';
-    const isGrants = String(moduleKey || '').trim() === 'grants';
 
     if (isBoard) {
         return `
@@ -21,7 +20,7 @@ export function renderHeaderActions(view, { isBoardView, moduleKey }) {
             </div>
             <button class="btn btn-default btn-filter" id="btnFilter">Filter<span class="filter-badge" id="filterBadge"></span></button>
             <button class="btn btn-default btn-sort" id="btnSort">Sort<span class="filter-badge" id="sortBadge"></span></button>
-            ${isGrants ? '' : '<button class="btn btn-default btn-automation" id="btnAutomation">Automation</button>'}
+            <button class="btn btn-default btn-automation" id="btnAutomation">Automation</button>
             <button class="btn btn-default btn-columns" id="btnManageColumns">Columns</button>
             ${isArchived ? '' : '<button class="btn btn-primary btn-new-project" id="btnNewProject">New Project</button>'}
         `;
@@ -81,16 +80,13 @@ export function renderHeaderActions(view, { isBoardView, moduleKey }) {
 
 export function bindHeaderActions(rootEl, view, { isBoardView, moduleKey, onAction, onShowFilter }) {
     const isBoard = !!isBoardView;
-    const isGrants = String(moduleKey || '').trim() === 'grants';
 
     if (isBoard) {
         rootEl.querySelector('#btnNewProject')?.addEventListener('click', () => onAction?.('new_project'));
         rootEl.querySelector('#btnManageColumns')?.addEventListener('click', () => onAction?.('manage_columns'));
         rootEl.querySelector('#btnFilter')?.addEventListener('click', () => onShowFilter?.());
         rootEl.querySelector('#btnSort')?.addEventListener('click', () => onAction?.('sort'));
-        if (!isGrants) {
-            rootEl.querySelector('#btnAutomation')?.addEventListener('click', () => onAction?.('automation'));
-        }
+        rootEl.querySelector('#btnAutomation')?.addEventListener('click', () => onAction?.('automation'));
 
         const searchInput = rootEl.querySelector('#headerSearchInput');
         if (searchInput) {
