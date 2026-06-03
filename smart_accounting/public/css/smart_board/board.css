@@ -950,6 +950,37 @@
     resize: vertical;
 }
 
+/* Popover text editor (notes-like, floats free of the column width) */
+.sb-pop-anchor {
+    min-height: 22px;
+    width: 100%;
+    outline: none;
+}
+
+.sb-pop-editor {
+    background: #fff;
+    border: 1px solid var(--smart-board-border);
+    border-radius: var(--smart-board-radius-md);
+    box-shadow: var(--smart-board-shadow-lg);
+    padding: 10px;
+}
+
+.sb-pop-editor__ta {
+    width: 100%;
+    min-height: 110px;
+    max-height: 300px;
+    overflow: auto;
+    resize: vertical;
+    box-sizing: border-box;
+}
+
+.sb-pop-editor__hint {
+    margin-top: 6px;
+    font-size: 11px;
+    color: var(--smart-board-text-muted, #94a3b8);
+    text-align: right;
+}
+
 .sb-inline-editor--select,
 .sb-inline-editor--date,
 .sb-inline-editor--money,
@@ -979,24 +1010,21 @@
     box-shadow: var(--smart-board-shadow-lg);
 }
 
-/* Portal variant: positioned by JS; should overlay table without being clipped */
+/* Portal variant: positioned by JS; should overlay table without being clipped.
+   Laid out as an ordered, responsive card grid (reads left-to-right, top-to-bottom
+   in option order) instead of a single long strip. */
 .sb-menu--portal {
     z-index: 30000;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 8px;
+    padding: 10px;
 }
 
-/* Status menu should be neat and aligned: single column list */
 .sb-menu--portal .sb-menu__item {
     width: 100%;
     text-align: left;
-}
-
-@media (min-width: 1px) {
-    /* override grid for portal to avoid ragged layout */
-    .sb-menu--portal {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-    }
+    white-space: normal;
 }
 
 .sb-menu__item {
@@ -1004,18 +1032,22 @@
     background: #f8f9fa;
     color: var(--smart-board-text);
     border-radius: 10px;
-    padding: 8px 10px;
+    padding: 9px 12px;
     font-weight: 600;
     font-size: 13px;
+    line-height: 1.25;
     cursor: pointer;
     text-align: center;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    transition: transform 0.08s ease, box-shadow 0.08s ease, filter 0.08s ease;
 }
 
 .sb-menu__item:hover {
-    filter: brightness(0.98);
+    filter: brightness(1.03);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+    transform: translateY(-1px);
 }
 
 .sb-activity-open-btn {

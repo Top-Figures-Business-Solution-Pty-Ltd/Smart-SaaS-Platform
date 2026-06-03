@@ -93,6 +93,30 @@ SMART_GRANTS_BOARDS: set[str] = {
 	"Grants 2027",
 }
 
+# Smart Grants boards use a fixed, code-managed status set AND order (not the
+# global Property Setter order, and not the admin Status Settings UI). This keeps
+# the grants workflow deterministic and GitHub-deployable to prod. Statuses not
+# listed here (e.g. "Working on it", "Waiting for client", "R&D") simply don't
+# appear on grants boards. "Not to Proceed" is a terminal/exception state kept at
+# the end. Every name here must exist in the global status pool to be selectable.
+GRANTS_STATUS_ORDER: list[str] = [
+	"Not started",
+	"Hold",
+	"Waiting for tech meeting",
+	"Waiting for tech evidence",
+	"Preparing R&D report",
+	"Waiting for report review and signature",
+	"Preparing application form",
+	"Waiting for AP review",
+	"Waiting for financial accounts",
+	"Preparing R&D exp calculation",
+	"Waiting for responses to fin queries",
+	"Final pack prep",
+	"Waiting for payment",
+	"Completed",
+	"Not to Proceed",
+]
+
 _STATUS_PROJECT_TYPE_SCOPE: dict[str, set[str]] = {
 	# R&D workflow statuses (2026-04) — Smart Grants boards only
 	"Waiting for tech meeting": SMART_GRANTS_BOARDS,
@@ -269,6 +293,19 @@ def get_project_type_status_config(project_type: str | None = None) -> dict:
 	"""
 	_ensure_logged_in()
 	pt = str(project_type or "").strip()
+
+	# Smart Grants boards: fixed code-managed set + order (ignore admin config).
+	if pt in SMART_GRANTS_BOARDS:
+		meta_set = set(_get_project_status_pool())
+		grants = [s for s in GRANTS_STATUS_ORDER if not meta_set or s in meta_set]
+		return {
+			"project_type": pt,
+			"pool": grants,
+			"allowed": grants,
+			"configured": True,
+			"meta": {"key": DEFAULT_KEY_PROJECT_TYPE_STATUS_CONFIG, "managed": "code"},
+		}
+
 	pool = _filter_pool_for_project_type(_get_project_status_pool(), pt)
 	cfg = _get_status_config_map()
 	allowed = cfg.get(pt) if pt else None

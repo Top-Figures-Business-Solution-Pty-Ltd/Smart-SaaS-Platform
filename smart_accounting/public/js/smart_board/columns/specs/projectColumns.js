@@ -4,7 +4,7 @@
  * - Rendering override is optional; by default we keep existing BoardCell.formatValue output.
  */
 import { STATUS_COLORS } from '../../utils/constants.js';
-import { InlineTextEditor, InlineTextareaEditor, InlineSelectEditor, InlineMenuSelectEditor, InlineDateEditor, InlineMoneyEditor } from '../../components/Common/editors/index.js';
+import { InlineTextEditor, InlineTextareaEditor, InlineSelectEditor, InlineMenuSelectEditor, InlineDateEditor, InlineMoneyEditor, PopoverTextEditor } from '../../components/Common/editors/index.js';
 import { LinkInput } from '../../components/Common/LinkInput.js';
 import { MultiLinkPicker } from '../../components/Common/MultiLinkPicker.js';
 import { uploadAttachmentToField } from '../../services/fileUploadService.js';
@@ -119,6 +119,16 @@ function statusMenuEditor({ cellEl, project, manager, field }) {
     mountEditorHelpers(manager, contentEl, ed);
   });
 
+  mountEditorHelpers(manager, contentEl, ed);
+  return ed;
+}
+
+// Smart Grants text fields: open a roomy notes-like popover (not constrained to
+// column width) instead of a single-line input. Used for all editable grants
+// "content" fields (everything that isn't a selector / date-picker / link).
+function grantsPopoverEditor({ cellEl, project, manager, field }) {
+  const contentEl = cellEl.querySelector('.cell-content') || cellEl;
+  const ed = new PopoverTextEditor(contentEl, { initialValue: project?.[field] ?? '' });
   mountEditorHelpers(manager, contentEl, ed);
   return ed;
 }
@@ -627,36 +637,10 @@ export function makeProjectColumnSpecs() {
         return ed;
       }
     },
-    {
-      field: 'custom_ap_submit_date',
-      isEditable: true,
-      renderEditor: ({ cellEl, project, manager, field }) => {
-        const contentEl = cellEl.querySelector('.cell-content') || cellEl;
-        const ed = new InlineTextEditor(contentEl, { initialValue: project?.[field] || '' });
-        mountEditorHelpers(manager, contentEl, ed);
-        return ed;
-      }
-    },
-    {
-      field: 'custom_industry_approval_date',
-      isEditable: true,
-      renderEditor: ({ cellEl, project, manager, field }) => {
-        const contentEl = cellEl.querySelector('.cell-content') || cellEl;
-        const ed = new InlineTextEditor(contentEl, { initialValue: project?.[field] || '' });
-        mountEditorHelpers(manager, contentEl, ed);
-        return ed;
-      }
-    },
-    {
-      field: 'custom_tax_lodgement_date',
-      isEditable: true,
-      renderEditor: ({ cellEl, project, manager, field }) => {
-        const contentEl = cellEl.querySelector('.cell-content') || cellEl;
-        const ed = new InlineTextEditor(contentEl, { initialValue: project?.[field] || '' });
-        mountEditorHelpers(manager, contentEl, ed);
-        return ed;
-      }
-    },
+    // Grants "date" fields are free-text (Data) → notes-like popover editor.
+    { field: 'custom_ap_submit_date', isEditable: true, renderEditor: grantsPopoverEditor },
+    { field: 'custom_industry_approval_date', isEditable: true, renderEditor: grantsPopoverEditor },
+    { field: 'custom_tax_lodgement_date', isEditable: true, renderEditor: grantsPopoverEditor },
 
     // (5) Notes - textarea expand
     {
@@ -670,36 +654,20 @@ export function makeProjectColumnSpecs() {
         return ed;
       }
     },
-    {
-      field: 'custom_grants_address_snapshot',
-      isEditable: true,
-      renderEditor: ({ cellEl, project, manager, field }) => {
-        const contentEl = cellEl.querySelector('.cell-content') || cellEl;
-        const ed = new InlineTextareaEditor(contentEl, { initialValue: project?.[field] || '' });
-        mountEditorHelpers(manager, contentEl, ed);
-        return ed;
-      }
-    },
-    {
-      field: 'custom_grants_primary_communication',
-      isEditable: true,
-      renderEditor: ({ cellEl, project, manager, field }) => {
-        const contentEl = cellEl.querySelector('.cell-content') || cellEl;
-        const ed = new InlineTextareaEditor(contentEl, { initialValue: project?.[field] || '' });
-        mountEditorHelpers(manager, contentEl, ed);
-        return ed;
-      }
-    },
-    {
-      field: 'custom_grants_status',
-      isEditable: true,
-      renderEditor: ({ cellEl, project, manager, field }) => {
-        const contentEl = cellEl.querySelector('.cell-content') || cellEl;
-        const ed = new InlineTextareaEditor(contentEl, { initialValue: project?.[field] || '' });
-        mountEditorHelpers(manager, contentEl, ed);
-        return ed;
-      }
-    },
+    // Smart Grants free-text content fields → notes-like popover editor.
+    { field: 'custom_grants_address_snapshot', isEditable: true, renderEditor: grantsPopoverEditor },
+    { field: 'custom_grants_primary_communication', isEditable: true, renderEditor: grantsPopoverEditor },
+    { field: 'custom_grants_status', isEditable: true, renderEditor: grantsPopoverEditor },
+    { field: 'custom_grants_fy_label', isEditable: true, renderEditor: grantsPopoverEditor },
+    { field: 'custom_grants_abn_snapshot', isEditable: true, renderEditor: grantsPopoverEditor },
+    { field: 'custom_grants_state', isEditable: true, renderEditor: grantsPopoverEditor },
+    { field: 'custom_grants_industry_category', isEditable: true, renderEditor: grantsPopoverEditor },
+    { field: 'custom_grants_partner_label', isEditable: true, renderEditor: grantsPopoverEditor },
+    { field: 'custom_grants_referral_text', isEditable: true, renderEditor: grantsPopoverEditor },
+    { field: 'custom_grants_owner_name', isEditable: true, renderEditor: grantsPopoverEditor },
+    { field: 'custom_grants_contact_name', isEditable: true, renderEditor: grantsPopoverEditor },
+    { field: 'custom_rebate_amount_text', isEditable: true, renderEditor: grantsPopoverEditor },
+    { field: 'custom_fee_percentage_text', isEditable: true, renderEditor: grantsPopoverEditor },
     {
       field: 'custom_grants_type',
       isEditable: true,

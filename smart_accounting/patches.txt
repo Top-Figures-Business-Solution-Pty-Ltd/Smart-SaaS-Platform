@@ -13,3 +13,4 @@ smart_accounting.patches.drop_grants_deliverer_field
 smart_accounting.patches.dedupe_shared_default_views
 smart_accounting.patches.migrate_portal_access_to_customer
 smart_accounting.patches.drop_smart_grants_board
+smart_accounting.patches.rename_waiting_of_payment_status

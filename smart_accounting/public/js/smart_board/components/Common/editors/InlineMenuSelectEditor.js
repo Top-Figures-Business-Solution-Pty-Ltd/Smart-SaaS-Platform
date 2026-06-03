@@ -105,8 +105,15 @@ export class InlineMenuSelectEditor {
   _reposition() {
     if (!this._portal || !this._root) return;
     const rect = this._root.getBoundingClientRect();
+    // Count options to decide a comfortable width: single column for a few
+    // options, a roomy two/three-column grid for long status lists. This is what
+    // makes the menu feel like an ordered "card grid" instead of a long strip.
+    const optionCount = this._portal?.querySelectorAll?.('button[data-value]')?.length || 0;
+    const preferredWidth = optionCount > 8
+      ? Math.max(380, rect.width)
+      : (optionCount > 3 ? Math.max(300, rect.width) : Math.max(220, rect.width));
     const placement = computeOverlayPlacement(rect, {
-      preferredWidth: Math.max(220, rect.width),
+      preferredWidth,
       minHeight: 180,
       maxHeight: 520,
       gap: 6,
