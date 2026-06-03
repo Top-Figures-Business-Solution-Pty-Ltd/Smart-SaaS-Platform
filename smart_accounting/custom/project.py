@@ -252,6 +252,11 @@ class CustomProject(Project):
         # Desk fetch_from is client-side; API updates need server-side alignment.
         self._sync_entity_type_from_customer_entity()
 
+        # Portal access is a client-level attribute (spans years/projects). The
+        # Customer is the source of truth; new projects inherit it, and edits made
+        # on the project are pushed back to the Customer and fanned out to siblings.
+        self._sync_portal_access_with_customer()
+
         # Board Automation: run automations on existing projects
         if not self.is_new():
             if not getattr(getattr(self, "flags", None), "skip_board_automation", False):
@@ -322,6 +327,92 @@ class CustomProject(Project):
         if len(rows or []) > 1:
             frappe.throw(f"Multiple Customers found for name: {raw}. Please choose a unique Client.")
     
+    # =========================================================================
+    # Portal Access sync (Customer <-> Project)
+    # =========================================================================
+
+    PORTAL_ACCESS_FIELDS = ("custom_portal_access_received", "custom_portal_access_expiry_date")
+
+    @staticmethod
+    def _portal_is_empty(field, val) -> bool:
+        if field == "custom_portal_access_received":
+            try:
+                return not bool(int(val or 0))
+            except Exception:
+                return not bool(val)
+        return val in (None, "")
+
+    @staticmethod
+    def _portal_equal(field, a, b) -> bool:
+        if field == "custom_portal_access_received":
+            try:
+                return bool(int(a or 0)) == bool(int(b or 0))
+            except Exception:
+                return bool(a) == bool(b)
+        try:
+            da = getdate(a) if a not in (None, "") else None
+            db_ = getdate(b) if b not in (None, "") else None
+            return da == db_
+        except Exception:
+            return str(a or "") == str(b or "")
+
+    def _sync_portal_access_with_customer(self):
+        """Inherit portal-access fields on create; push edits back to Customer and
+        fan out to all of that customer's projects (Customer is source of truth)."""
+        if frappe.flags.get("_sb_portal_sync"):
+            return
+        customer = str(getattr(self, "customer", "") or "").strip()
+        if not customer:
+            return
+        try:
+            cust = frappe.db.get_value("Customer", customer, list(self.PORTAL_ACCESS_FIELDS), as_dict=True)
+        except Exception:
+            return
+        if cust is None:
+            return
+
+        is_new = self.is_new()
+        push = {}
+        for f in self.PORTAL_ACCESS_FIELDS:
+            proj_val = getattr(self, f, None)
+            cust_val = cust.get(f)
+            if is_new:
+                if self._portal_is_empty(f, proj_val) and not self._portal_is_empty(f, cust_val):
+                    setattr(self, f, cust_val)
+                elif not self._portal_is_empty(f, proj_val) and not self._portal_equal(f, proj_val, cust_val):
+                    push[f] = proj_val
+            else:
+                try:
+                    changed = self.has_value_changed(f)
+                except Exception:
+                    changed = False
+                if changed and not self._portal_equal(f, proj_val, cust_val):
+                    push[f] = proj_val
+        if push:
+            self._propagate_portal_access(customer, push)
+
+    def _propagate_portal_access(self, customer, values):
+        frappe.flags["_sb_portal_sync"] = True
+        try:
+            cust_diff = {}
+            for f, v in values.items():
+                cur = frappe.db.get_value("Customer", customer, f)
+                if not self._portal_equal(f, cur, v):
+                    cust_diff[f] = v
+            if cust_diff:
+                frappe.db.set_value("Customer", customer, cust_diff, update_modified=False)
+
+            names = frappe.get_all("Project", filters={"customer": customer}, pluck="name")
+            for name in names:
+                if name == self.name:
+                    continue
+                cur = frappe.db.get_value("Project", name, list(values.keys()), as_dict=True) or {}
+                diff = {f: v for f, v in values.items() if not self._portal_equal(f, cur.get(f), v)}
+                if diff:
+                    frappe.db.set_value("Project", name, diff, update_modified=False)
+        finally:
+            frappe.flags["_sb_portal_sync"] = False
+
     # =========================================================================
     # Board Automation Engine
     # =========================================================================

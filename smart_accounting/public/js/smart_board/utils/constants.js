@@ -3,6 +3,10 @@
  * 全局常量配置
  */
 
+// Placeholder Project Type that holds archived projects whose original board was
+// deleted. Restoring such a project prompts the user to pick a real Project Type.
+export const ARCHIVED_HOLDING_TYPE = 'Archived (Holding)';
+
 // Project Types（Sidebar 会从系统实时读取 Project Type 列表）
 // 这里仅保留“显示层”的 icon 映射与空态建议，不再写死具体有哪些业务类型
 export const PROJECT_TYPE_ICONS = {
@@ -12,7 +16,6 @@ export const PROJECT_TYPE_ICONS = {
     'Bookkeeping': 'clipboard',
     'R&D Grant': 'clipboard',
     'Grants': 'clipboard',
-    'Smart Grants': 'clipboard',
     'Grants 2024': 'clipboard',
     'Grants 2025': 'clipboard',
     'Grants 2026': 'clipboard',
@@ -332,7 +335,6 @@ export const DEFAULT_COLUMNS = {
         { field: 'status', label: 'Status', width: 150 },
         { field: 'modified', label: 'Last Updated', width: 160 }
     ],
-    'Smart Grants': makeGrantsDefaultColumns(),
     'Grants 2024': makeGrantsDefaultColumns(),
     'Grants 2025': makeGrantsDefaultColumns(),
     'Grants 2026': makeGrantsDefaultColumns(),

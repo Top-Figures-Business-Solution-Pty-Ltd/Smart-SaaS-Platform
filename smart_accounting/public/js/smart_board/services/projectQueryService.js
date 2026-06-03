@@ -75,6 +75,8 @@ export class ProjectQueryService {
       'notes',
       'is_active',
       'modified',
+      'custom_archive_source',
+      'custom_archive_source_ref',
 
       'custom_entity_type',
       'custom_team_members',

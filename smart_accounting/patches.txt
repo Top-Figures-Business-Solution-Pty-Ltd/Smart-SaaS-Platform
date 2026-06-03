@@ -11,3 +11,5 @@ smart_accounting.patches.backfill_project_year_end
 smart_accounting.patches.relabel_grant_fy_to_fy_cy
 smart_accounting.patches.drop_grants_deliverer_field
 smart_accounting.patches.dedupe_shared_default_views
+smart_accounting.patches.migrate_portal_access_to_customer
+smart_accounting.patches.drop_smart_grants_board

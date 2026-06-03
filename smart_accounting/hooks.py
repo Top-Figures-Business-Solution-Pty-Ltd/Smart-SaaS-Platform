@@ -38,11 +38,13 @@ override_doctype_class = {
 
 # Document Events
 # Hook on document methods and events
-# doc_events = {
-#     "Project": {
-#         "before_save": "smart_accounting.custom_methods.project.before_save"
-#     }
-# }
+doc_events = {
+    "Customer": {
+        # Portal access lives on the Customer (source of truth); propagate edits
+        # to all of that customer's projects so board mirrors stay consistent.
+        "on_update": "smart_accounting.custom.customer.sync_portal_access_to_projects"
+    }
+}
 
 # Scheduled Tasks
 #
@@ -87,11 +89,11 @@ fixtures = [
         "doctype": "Project Type",
         "filters": [
             ["name", "in", [
-                "Smart Grants",
                 "Grants 2024",
                 "Grants 2025",
                 "Grants 2026",
-                "Grants 2027"
+                "Grants 2027",
+                "Archived (Holding)"
             ]]
         ]
     },

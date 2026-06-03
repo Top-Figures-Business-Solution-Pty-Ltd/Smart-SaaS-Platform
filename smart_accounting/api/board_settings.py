@@ -85,7 +85,8 @@ def _get_project_status_pool() -> list[str]:
 # Statuses scoped to grants should be available on every grants board, not just the
 # legacy "Smart Grants" one.
 SMART_GRANTS_BOARDS: set[str] = {
-	"Smart Grants",
+	# Legacy aggregated "Smart Grants" board was removed (see
+	# patches.drop_smart_grants_board); only the per-year boards remain.
 	"Grants 2024",
 	"Grants 2025",
 	"Grants 2026",

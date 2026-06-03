@@ -14,6 +14,11 @@ SMART_GRANTS_YEAR_BOARDS = (
     "Grants 2026",
     "Grants 2027",
 )
+# Placeholder Project Type that holds archived projects whose original board/type
+# was deleted. It is intentionally NOT shown as a board (see allowed/excluded
+# project types in the website entrypoints). Restoring such a project prompts the
+# user to choose a real Project Type.
+ARCHIVED_HOLDING_PROJECT_TYPE = "Archived (Holding)"
 GRANTS_TEXT_DATE_FIELDS = (
     "custom_ap_submit_date",
     "custom_industry_approval_date",
@@ -51,7 +56,10 @@ def _ensure_role() -> None:
 
 
 def _ensure_project_type() -> None:
-    for pt in (SMART_GRANTS_PROJECT_TYPE, *SMART_GRANTS_YEAR_BOARDS):
+    # NOTE: the legacy aggregated "Smart Grants" board is intentionally NOT created
+    # here anymore; it is removed by patches.drop_smart_grants_board. We create the
+    # per-year boards plus the Archived (Holding) placeholder.
+    for pt in (*SMART_GRANTS_YEAR_BOARDS, ARCHIVED_HOLDING_PROJECT_TYPE):
         if frappe.db.exists("Project Type", pt):
             continue
         frappe.get_doc(
@@ -220,6 +228,58 @@ def _project_custom_fields() -> list[dict]:
     ]
 
 
+def _customer_custom_fields() -> list[dict]:
+    """
+    Portal Access fields live on the Customer as the source of truth, because
+    access spans multiple years/projects for the same client. Each grants Project
+    keeps a synced mirror (see CustomProject portal-access sync).
+    """
+    return [
+        {
+            "fieldname": "custom_grants_portal_section",
+            "label": "Grants Portal Access",
+            "fieldtype": "Section Break",
+            "insert_after": "represents_company",
+            "collapsible": 1,
+        },
+        {
+            "fieldname": "custom_portal_access_received",
+            "label": "Portal Access Received",
+            "fieldtype": "Check",
+            "insert_after": "custom_grants_portal_section",
+        },
+        {
+            "fieldname": "custom_portal_access_expiry_date",
+            "label": "Portal Access Expiry Date",
+            "fieldtype": "Date",
+            "insert_after": "custom_portal_access_received",
+        },
+    ]
+
+
+def ensure_portal_access_fields() -> None:
+    """
+    Idempotently create the Portal Access custom fields on both Customer (source
+    of truth) and Project (synced mirror). Safe to call from patches so the fields
+    exist before any data migration runs (patches execute before fixtures sync).
+    """
+    create_custom_fields({"Customer": _customer_custom_fields()}, update=True)
+    project_portal_fields = [
+        f for f in _project_custom_fields()
+        if str(f.get("fieldname") or "") in ("custom_portal_access_expiry_date",)
+    ]
+    # custom_portal_access_received (Check) on Project is fixture-managed; ensure it too.
+    if not frappe.db.exists("Custom Field", "Project-custom_portal_access_received"):
+        project_portal_fields.append({
+            "fieldname": "custom_portal_access_received",
+            "label": "Portal Access Received",
+            "fieldtype": "Check",
+            "insert_after": "custom_grants_referral_text",
+        })
+    if project_portal_fields:
+        create_custom_fields({"Project": project_portal_fields}, update=True)
+
+
 def _force_project_fieldtype_to_data(fieldname: str, length: int = 140) -> None:
     fieldname = str(fieldname or "").strip()
     if not fieldname:
@@ -286,6 +346,7 @@ def _ensure_custom_fields() -> None:
     for fieldname in GRANTS_TEXT_DATE_FIELDS:
         _force_project_fieldtype_to_data(fieldname)
     create_custom_fields({"Project": _project_custom_fields()}, update=True)
+    create_custom_fields({"Customer": _customer_custom_fields()}, update=True)
 
 
 def _permission_rows_for(role: str) -> set[tuple[str, int]]:

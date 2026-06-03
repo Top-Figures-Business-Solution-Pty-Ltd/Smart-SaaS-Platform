@@ -3,7 +3,7 @@
  * 类Monday.com的表格视图组件
  */
 
-import { DEFAULT_COLUMNS, PROJECT_COLUMN_CATALOG, isSortableProjectField } from '../../utils/constants.js';
+import { DEFAULT_COLUMNS, PROJECT_COLUMN_CATALOG, isSortableProjectField, ARCHIVED_HOLDING_TYPE } from '../../utils/constants.js';
 import { renderColGroup, renderHeaderCells, renderRows } from './boardTableRender.js';
 import { initResizable } from './boardTableResize.js';
 import { loadColumnWidths, saveColumnWidths } from './boardTableStorage.js';
@@ -28,7 +28,9 @@ import { sanitizeProjectColumnsConfig } from '../../utils/deprecatedColumns.js';
 import { ProjectActivityModal } from './ProjectActivityModal.js';
 import * as ViewTypes from '../../utils/viewTypes.js';
 import { SortModal } from './SortModal.js';
-import { getProjectColumnCatalogForModule, filterProjectColumnsForModule } from '../../utils/moduleConfig.js';
+import { RestoreTypePickerModal } from './RestoreTypePickerModal.js';
+import { ProjectTypeService } from '../../services/projectTypeService.js';
+import { getProjectColumnCatalogForModule, filterProjectColumnsForModule, getAllowedProjectTypes, getExcludedProjectTypes } from '../../utils/moduleConfig.js';
 
 export class BoardTable {
     constructor(container, options = {}) {
@@ -1306,14 +1308,38 @@ export class BoardTable {
         }
     }
 
+    _findProjectRow(name) {
+        return this._projectByName?.get?.(name)
+            || (Array.isArray(this.projects) ? this.projects.find((p) => p?.name === name) : null)
+            || null;
+    }
+
     async _restoreProjects(names = []) {
         const list = Array.isArray(names) ? names.map((x) => String(x || '').trim()).filter(Boolean) : [];
         if (!list.length) return;
+
+        // Projects whose original board was deleted sit on the Archived (Holding)
+        // placeholder. They can't be restored onto a non-existent board, so prompt
+        // the user to choose a target board (per project) before restoring.
+        const holding = list.filter((name) => {
+            const row = this._findProjectRow(name);
+            return String(row?.project_type || '').trim() === ARCHIVED_HOLDING_TYPE;
+        });
+
+        let typeChoice = {};
+        if (holding.length) {
+            const choice = await this._promptRestoreTypes(holding);
+            if (!choice) return; // cancelled -> abort the whole restore
+            typeChoice = choice;
+        }
+
         this._bulkWorking = true;
         this.updateBulkBar();
         try {
             for (const name of list) {
-                await ProjectService.updateProject(name, { is_active: 'Yes' });
+                const payload = { is_active: 'Yes' };
+                if (typeChoice[name]) payload.project_type = typeChoice[name];
+                await ProjectService.updateProject(name, payload);
                 this.store?.commit?.('projects/removeProject', name);
             }
             this._clearSelection();
@@ -1325,6 +1351,43 @@ export class BoardTable {
             this._bulkWorking = false;
             this.updateBulkBar();
         }
+    }
+
+    async _promptRestoreTypes(holdingNames = []) {
+        // Build the list of selectable boards (exclude the placeholder + module scope).
+        let options = await ProjectTypeService.fetchProjectTypes();
+        options = Array.isArray(options) ? options.slice() : [];
+        const allowed = getAllowedProjectTypes();
+        const excluded = getExcludedProjectTypes();
+        if (allowed.length) {
+            const allowSet = new Set(allowed.map((s) => String(s || '').trim()));
+            options = options.filter((t) => allowSet.has(String(t || '').trim()));
+        } else if (excluded.length) {
+            const exclSet = new Set(excluded.map((s) => String(s || '').trim()));
+            options = options.filter((t) => !exclSet.has(String(t || '').trim()));
+        }
+        options = options.filter((t) => String(t || '').trim() !== ARCHIVED_HOLDING_TYPE);
+
+        const projects = holdingNames.map((name) => {
+            const row = this._findProjectRow(name) || {};
+            return {
+                name,
+                project_name: row?.project_name || name,
+                original_type: row?.custom_archive_source_ref || '',
+            };
+        });
+
+        return await new Promise((resolve) => {
+            let settled = false;
+            const done = (v) => { if (!settled) { settled = true; resolve(v); } };
+            const modal = new RestoreTypePickerModal({
+                projects,
+                projectTypes: options,
+                onConfirm: async (map) => { done(map || {}); },
+                onClose: () => done(null),
+            });
+            modal.open();
+        });
     }
 
     async _bulkAddTaskToProjects() {

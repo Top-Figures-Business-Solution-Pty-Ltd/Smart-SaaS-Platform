@@ -3,14 +3,6 @@
   "description": null,
   "docstatus": 0,
   "doctype": "Project Type",
-  "modified": "2026-03-13 11:01:13.587619",
-  "name": "Smart Grants",
-  "project_type": "Smart Grants"
- },
- {
-  "description": null,
-  "docstatus": 0,
-  "doctype": "Project Type",
   "modified": "2026-05-29 14:02:16.339789",
   "name": "Grants 2024",
   "project_type": "Grants 2024"
@@ -38,5 +30,13 @@
   "modified": "2026-05-29 14:02:28.980382",
   "name": "Grants 2027",
   "project_type": "Grants 2027"
+ },
+ {
+  "description": null,
+  "docstatus": 0,
+  "doctype": "Project Type",
+  "modified": "2026-06-03 11:05:19.752501",
+  "name": "Archived (Holding)",
+  "project_type": "Archived (Holding)"
  }
 ]
