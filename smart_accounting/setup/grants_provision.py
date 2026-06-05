@@ -113,7 +113,8 @@ def _project_custom_fields() -> list[dict]:
             "fieldname": "custom_grants_priority",
             "label": "Grants Priority",
             "fieldtype": "Select",
-            "options": "Urgent\nHigh\nMedium\nLow",
+            # S1–S4 represent the four quarters (handy for reporting/aggregation).
+            "options": "S1\nS2\nS3\nS4",
             "insert_after": "custom_grants_type",
         },
         {

@@ -91,7 +91,7 @@ export class NewProjectModal {
         ${showGrantFy ? `
           <div class="sb-newproj__row">
             <label class="sb-newproj__label">FY/CY</label>
-            <input class="form-control" id="sbNewProjGrantFy" type="text" placeholder="e.g. FY25 / CY2025" />
+            <input class="form-control" id="sbNewProjGrantFy" type="text" placeholder="FY/CY" />
           </div>
         ` : ''}
 

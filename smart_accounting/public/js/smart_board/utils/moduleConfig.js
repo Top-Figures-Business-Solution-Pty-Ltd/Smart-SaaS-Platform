@@ -181,6 +181,9 @@ export function getNewProjectModalConfig({ moduleKey = null, currentView = '' } 
       defaultValues: {
         project_type: 'Grants 2026',
         custom_project_frequency: 'One-off',
+        // Smart Grants defaults to the "Top Grants" company (Smart Accounting uses
+        // its own first company, typically "Top Figures").
+        company: 'Top Grants',
       },
     };
   }
