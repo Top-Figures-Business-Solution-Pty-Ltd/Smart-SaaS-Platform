@@ -113,9 +113,10 @@ def _project_custom_fields() -> list[dict]:
             "fieldname": "custom_grants_priority",
             "label": "Grants Priority",
             "fieldtype": "Select",
-            # Leading blank → a real "empty" (-) choice so new/rolled-over projects
-            # are NOT forced to S1. S1–S4 represent the four quarters.
-            "options": "\nS1\nS2\nS3\nS4",
+            # "-" is a real "no priority" choice (always renders, unlike an empty
+            # option) so new/rolled-over projects are NOT forced to S1.
+            # S1–S4 represent the four quarters.
+            "options": "-\nS1\nS2\nS3\nS4",
             "insert_after": "custom_grants_type",
         },
         {

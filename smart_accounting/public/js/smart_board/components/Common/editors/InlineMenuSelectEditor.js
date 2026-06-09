@@ -164,9 +164,7 @@ export class InlineMenuSelectEditor {
       }
       const v = String(o ?? '');
       return { value: v, label: v, color: '' };
-    // Keep an explicit "clear" choice (empty value but a visible label like "—");
-    // only drop entries that are blank in BOTH value and label.
-    }).filter((it) => it.value !== '' || it.label !== '');
+    }).filter((it) => !!it.value);
   }
 
   _itemHTML(it) {

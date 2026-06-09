@@ -23,7 +23,8 @@ Idempotent: re-running is a no-op once values are clean.
 import frappe
 
 ALLOWED = {
-    "custom_grants_priority": ("S1", "S2", "S3", "S4"),
+    # "-" is the explicit "no priority" choice; keep it so the cleanup never nulls it.
+    "custom_grants_priority": ("-", "S1", "S2", "S3", "S4"),
     "custom_grants_type": ("R&DTI", "EMDG"),
 }
 

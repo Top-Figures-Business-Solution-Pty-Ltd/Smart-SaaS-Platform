@@ -11,14 +11,6 @@
   "description": null,
   "docstatus": 0,
   "doctype": "Project Type",
-  "modified": "2026-05-29 14:02:20.887224",
-  "name": "FY 2025",
-  "project_type": "FY 2025"
- },
- {
-  "description": null,
-  "docstatus": 0,
-  "doctype": "Project Type",
   "modified": "2026-05-29 14:02:24.919012",
   "name": "FY 2026",
   "project_type": "FY 2026"
@@ -38,5 +30,13 @@
   "modified": "2026-06-03 11:05:19.752501",
   "name": "Archived (Holding)",
   "project_type": "Archived (Holding)"
+ },
+ {
+  "description": null,
+  "docstatus": 0,
+  "doctype": "Project Type",
+  "modified": "2026-05-29 14:02:20.887224",
+  "name": "FY 2025",
+  "project_type": "FY 2025"
  }
 ]
