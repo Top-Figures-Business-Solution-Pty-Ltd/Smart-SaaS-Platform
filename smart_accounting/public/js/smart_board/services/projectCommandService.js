@@ -59,6 +59,41 @@ export class ProjectCommandService {
     return r?.message || { updated: [] };
   }
 
+  /**
+   * Roll over / duplicate selected projects (single request).
+   * @param {object} opts
+   * @param {string[]} opts.sourceNames
+   * @param {string} opts.targetProjectType
+   * @param {string[]} opts.carryFields
+   * @param {object} opts.overrides
+   * @param {string} opts.nameSuffix
+   * @param {string} opts.resetStatus
+   */
+  static async rollOverProjects({
+    sourceNames = [],
+    targetProjectType = '',
+    carryFields = [],
+    overrides = {},
+    nameSuffix = '',
+    resetStatus = 'Not started',
+  } = {}) {
+    const names = Array.isArray(sourceNames) ? sourceNames : [];
+    if (!names.length) throw new Error('No projects selected');
+    const r = await frappe.call({
+      method: 'smart_accounting.api.project_rollover.roll_over_projects',
+      type: 'POST',
+      args: {
+        source_names: names,
+        target_project_type: targetProjectType || null,
+        carry_fields: carryFields,
+        overrides: overrides || {},
+        name_suffix: nameSuffix || null,
+        reset_status: resetStatus || 'Not started',
+      },
+    });
+    return r?.message || { created: [], errors: [], count: 0 };
+  }
+
   static async createTask(project, data = {}) {
     const p = String(project || '').trim();
     if (!p) throw new Error('Missing project');

@@ -29,8 +29,10 @@ import { ProjectActivityModal } from './ProjectActivityModal.js';
 import * as ViewTypes from '../../utils/viewTypes.js';
 import { SortModal } from './SortModal.js';
 import { RestoreTypePickerModal } from './RestoreTypePickerModal.js';
+import { RollOverModal } from './RollOverModal.js';
 import { ProjectTypeService } from '../../services/projectTypeService.js';
-import { getProjectColumnCatalogForModule, filterProjectColumnsForModule, getAllowedProjectTypes, getExcludedProjectTypes } from '../../utils/moduleConfig.js';
+import { ProjectCommandService } from '../../services/projectCommandService.js';
+import { getProjectColumnCatalogForModule, filterProjectColumnsForModule, getAllowedProjectTypes, getExcludedProjectTypes, getRollOverConfig } from '../../utils/moduleConfig.js';
 
 export class BoardTable {
     constructor(container, options = {}) {
@@ -438,6 +440,7 @@ export class BoardTable {
               `
             : `
                   <button type="button" class="btn btn-default btn-sm" data-action="bulk-add-task">Add Task</button>
+                  ${getRollOverConfig({ moduleKey: this.moduleKey })?.enabled ? '<button type="button" class="btn btn-default btn-sm" data-action="bulk-rollover">Roll Over</button>' : ''}
                   <button type="button" class="btn btn-default btn-sm" data-action="bulk-export">Export (CSV)</button>
                   <button type="button" class="btn btn-default btn-sm" data-action="bulk-archive">Archive</button>
                   <button type="button" class="btn btn-danger btn-sm" data-action="bulk-delete">Delete</button>
@@ -1212,6 +1215,11 @@ export class BoardTable {
             return;
         }
 
+        if (action === 'bulk-rollover') {
+            await this._bulkRollOver();
+            return;
+        }
+
         if (action === 'bulk-archive') {
             const ok = await confirmDialog(`Archive ${names.length} projects? (Set is_active = No)`);
             if (!ok) return;
@@ -1225,6 +1233,111 @@ export class BoardTable {
             await this._bulkDelete();
             return;
         }
+    }
+
+    // Roll Over / Duplicate the selected projects onto a chosen board, carrying
+    // over a user-selected set of values and resetting the rest.
+    async _bulkRollOver() {
+        const names = this._getSelectedNames();
+        if (!names.length) return;
+        const baseCfg = getRollOverConfig({ moduleKey: this.moduleKey });
+        if (!baseCfg?.enabled) return;
+
+        // Order the field list to match the board's columns: currently visible
+        // columns first (in their on-screen order), then the remaining (hidden)
+        // catalog columns, then any carry options that aren't board columns.
+        const cfg = { ...baseCfg, carryOptions: this._orderRollOverOptions(baseCfg.carryOptions) };
+
+        const boards = Array.isArray(cfg.yearBoards) ? cfg.yearBoards : [];
+        const current = String(this.viewType || '').trim();
+
+        // Default target = the "next year" board when the current board name carries
+        // a 4-digit year (e.g. "FY 2026" -> "FY 2027"); otherwise the first other board.
+        let defaultTarget = current;
+        const ym = current.match(/(\d{4})/);
+        if (ym) {
+            const next = current.replace(ym[1], String(Number(ym[1]) + 1));
+            if (boards.includes(next)) defaultTarget = next;
+            else if (boards.length) defaultTarget = boards.find((b) => b !== current) || boards[0];
+        } else if (boards.length) {
+            defaultTarget = boards[0];
+        }
+
+        const modal = new RollOverModal({
+            count: names.length,
+            config: cfg,
+            currentBoard: current,
+            defaultTargetBoard: defaultTarget,
+            onConfirm: async ({ targetBoard, carryFields, overrides, nameSuffix }) => {
+                const res = await ProjectCommandService.rollOverProjects({
+                    sourceNames: names,
+                    targetProjectType: targetBoard,
+                    carryFields,
+                    overrides,
+                    nameSuffix,
+                    resetStatus: cfg.resetStatus || 'Not started',
+                });
+                const created = Array.isArray(res?.created) ? res.created : [];
+                const errors = Array.isArray(res?.errors) ? res.errors : [];
+
+                if (!created.length && errors.length) {
+                    throw new Error(errors[0]?.error || 'Roll over failed');
+                }
+
+                this._clearSelection();
+                if (created.length) {
+                    notify(`Rolled over ${created.length} project${created.length === 1 ? '' : 's'} to ${targetBoard}`, 'green');
+                    if (targetBoard === current) {
+                        try { await this._reloadCurrentProjects(); } catch (e) { console.error(e); }
+                    }
+                }
+                if (errors.length) {
+                    notify(`Failed on ${errors.length} project${errors.length === 1 ? '' : 's'}`, 'orange');
+                    console.warn('Roll over errors', errors);
+                }
+            },
+        });
+        await modal.open();
+    }
+
+    // Reorder roll-over carry options to mirror the board's Columns order:
+    // visible columns first (current on-screen order), then hidden catalog columns,
+    // then any options that aren't columns (e.g. Team Members).
+    _orderRollOverOptions(carryOptions = []) {
+        const opts = Array.isArray(carryOptions) ? carryOptions : [];
+        const byField = new Map(opts.map((o) => [o.field, o]));
+
+        const visibleFields = (this._renderColumns || [])
+            .map((c) => c && c.field)
+            .filter(Boolean);
+
+        let catalogFields = [];
+        try {
+            const catalog = getProjectColumnCatalogForModule(PROJECT_COLUMN_CATALOG || [], this.moduleKey, { includeHidden: true });
+            catalogFields = (catalog || []).map((c) => c && c.field).filter(Boolean);
+        } catch (e) { catalogFields = []; }
+
+        const seen = new Set();
+        const ordered = [];
+        const take = (field) => {
+            if (byField.has(field) && !seen.has(field)) {
+                seen.add(field);
+                ordered.push(byField.get(field));
+            }
+        };
+        visibleFields.forEach(take);
+        catalogFields.forEach(take);
+        // Append remaining options that aren't board columns, preserving config order.
+        opts.forEach((o) => { if (!seen.has(o.field)) { seen.add(o.field); ordered.push(o); } });
+        return ordered;
+    }
+
+    async _reloadCurrentProjects() {
+        if (!this.store?.dispatch) return;
+        const state = this.store?.getState?.() || {};
+        const projectState = state?.projects || {};
+        const filters = { ...(projectState?.lastFilters || {}) };
+        await this.store.dispatch('projects/fetchProjects', filters);
     }
 
     // Export the currently selected projects to CSV using whatever columns are

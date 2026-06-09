@@ -162,6 +162,58 @@ export function filterProjectColumnsForModule(columnsConfig = [], moduleKey = nu
   return list;
 }
 
+// Roll Over / Duplicate configuration per module.
+// - carryOptions: fields offered as a "carry value?" checklist (with smart defaults).
+// - lockedCarry: always carried (shown as locked-on, informational only).
+// - fyOverride: an editable key field whose new value the user types (not a checkbox).
+export function getRollOverConfig({ moduleKey = null } = {}) {
+  const key = getModuleKey(moduleKey);
+  if (key === 'grants') {
+    // Each field offers three user-pickable modes: carry (keep original), clear
+    // (leave blank), or set (type/pick a new value). `mode` is just the default.
+    // type drives the "set" editor: 'data' | 'date' | 'select' | 'check' | 'none'.
+    return {
+      enabled: true,
+      // Smart Grants rolls over onto a DIFFERENT (next-year) board by default.
+      defaultTargetMode: 'other',
+      allowSameBoard: true,
+      yearBoards: ['FY 2024', 'FY 2025', 'FY 2026', 'FY 2027'],
+      resetStatus: 'Not started',
+      lockedCarry: [
+        { field: 'customer', label: 'Client' },
+        { field: 'company', label: 'Company' },
+      ],
+      carryOptions: [
+        { field: 'custom_grants_fy_label', label: 'FY/CY', type: 'data', mode: 'clear' },
+        { field: 'custom_grants_abn_snapshot', label: 'ABN', type: 'data', mode: 'carry' },
+        { field: 'custom_grants_state', label: 'State', type: 'data', mode: 'carry' },
+        { field: 'custom_grants_industry_category', label: 'Industry', type: 'data', mode: 'carry' },
+        { field: 'custom_grants_type', label: 'Grants Type', type: 'select', options: ['R&DTI', 'EMDG'], mode: 'carry' },
+        { field: 'custom_grants_priority', label: 'Grants Priority', type: 'select', options: ['S1', 'S2', 'S3', 'S4'], mode: 'carry' },
+        { field: 'custom_grants_partner_label', label: 'Partner', type: 'data', mode: 'carry' },
+        { field: 'custom_grants_referral_text', label: 'Referral', type: 'data', mode: 'carry' },
+        { field: 'custom_grants_owner_name', label: 'Responsible', type: 'data', mode: 'carry' },
+        { field: 'custom_grants_contact_name', label: 'Contact', type: 'data', mode: 'carry' },
+        { field: 'custom_grants_address_snapshot', label: 'Address', type: 'data', mode: 'carry' },
+        { field: 'custom_grants_primary_communication', label: 'Communication', type: 'data', mode: 'carry' },
+        { field: 'custom_tg_tax_agent', label: 'TG Tax Agent', type: 'data', mode: 'carry' },
+        { field: 'custom_portal_access_received', label: 'Portal Access Received', type: 'check', mode: 'carry' },
+        { field: 'custom_portal_access_expiry_date', label: 'Portal Access Expiry', type: 'date', mode: 'carry' },
+        { field: 'custom_team_members', label: 'Team Members', type: 'none', mode: 'carry' },
+        { field: 'custom_grants_status', label: 'Progress', type: 'data', mode: 'clear' },
+        { field: 'custom_ap_submit_date', label: 'AP Submit', type: 'date', mode: 'clear' },
+        { field: 'custom_industry_approval_date', label: 'Industry Approval', type: 'date', mode: 'clear' },
+        { field: 'custom_tax_lodgement_date', label: 'Tax Lodgement', type: 'date', mode: 'clear' },
+        { field: 'custom_rebate_amount_text', label: 'Rebate', type: 'data', mode: 'clear' },
+        { field: 'custom_fee_percentage_text', label: 'Fee %', type: 'data', mode: 'clear' },
+        { field: 'notes', label: 'Notes', type: 'data', mode: 'clear' },
+      ],
+    };
+  }
+  // Smart Accounting roll-over is not enabled yet (planned: same board, fiscal year +1).
+  return { enabled: false };
+}
+
 export function getNewProjectModalConfig({ moduleKey = null, currentView = '' } = {}) {
   const key = getModuleKey(moduleKey);
   if (key === 'grants') {
