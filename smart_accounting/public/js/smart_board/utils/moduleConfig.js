@@ -163,55 +163,83 @@ export function filterProjectColumnsForModule(columnsConfig = [], moduleKey = nu
 }
 
 // Roll Over / Duplicate configuration per module.
-// - carryOptions: fields offered as a "carry value?" checklist (with smart defaults).
-// - lockedCarry: always carried (shown as locked-on, informational only).
-// - fyOverride: an editable key field whose new value the user types (not a checkbox).
+// The per-field list is NOT hardcoded here — it is built at open time from the
+// board's actual columns (same labels & order as the Columns panel). This config
+// only supplies:
+// - fieldMeta: per-field hints for the "Set" editor (type/options) and default mode
+//   ('carry' | 'clear'). Anything not listed defaults to { type:'data', mode:'carry' }.
+// - excludeFields: columns that must never appear (identity/structural/computed,
+//   or handled by a dedicated control such as Fiscal Year).
+// - lockedCarry / resetStatus / advanceFiscalYear / target-board behaviour.
+// Read-only / non-data columns that never belong in the carry list.
+const _ROLLOVER_EXCLUDE_BASE = ['modified', 'is_active', 'priority_indicator'];
+
+// Structural columns shown as locked "handled" rows (so the list still mirrors the
+// Columns panel) instead of offering Carry/Clear/Set.
+const _ROLLOVER_LOCKED_BASE = [
+  { field: 'customer', label: 'Client', note: 'Carry (always)' },
+  { field: 'company', label: 'Company', note: 'Carry (always)' },
+  { field: 'project_type', label: 'Project Type', note: '→ Target board' },
+  { field: 'project_name', label: 'Project Name', note: '→ auto-named' },
+];
+
 export function getRollOverConfig({ moduleKey = null } = {}) {
   const key = getModuleKey(moduleKey);
   if (key === 'grants') {
-    // Each field offers three user-pickable modes: carry (keep original), clear
-    // (leave blank), or set (type/pick a new value). `mode` is just the default.
-    // type drives the "set" editor: 'data' | 'date' | 'select' | 'check' | 'none'.
+    // Smart Grants rolls over onto a DIFFERENT (next-year) board by default.
     return {
       enabled: true,
-      // Smart Grants rolls over onto a DIFFERENT (next-year) board by default.
       defaultTargetMode: 'other',
       allowSameBoard: true,
       yearBoards: ['FY 2024', 'FY 2025', 'FY 2026', 'FY 2027'],
       resetStatus: 'Not started',
-      lockedCarry: [
-        { field: 'customer', label: 'Client' },
-        { field: 'company', label: 'Company' },
-      ],
-      carryOptions: [
-        { field: 'custom_grants_fy_label', label: 'FY/CY', type: 'data', mode: 'clear' },
-        { field: 'custom_grants_abn_snapshot', label: 'ABN', type: 'data', mode: 'carry' },
-        { field: 'custom_grants_state', label: 'State', type: 'data', mode: 'carry' },
-        { field: 'custom_grants_industry_category', label: 'Industry', type: 'data', mode: 'carry' },
-        { field: 'custom_grants_type', label: 'Grants Type', type: 'select', options: ['R&DTI', 'EMDG'], mode: 'carry' },
-        { field: 'custom_grants_priority', label: 'Grants Priority', type: 'select', options: ['S1', 'S2', 'S3', 'S4'], mode: 'carry' },
-        { field: 'custom_grants_partner_label', label: 'Partner', type: 'data', mode: 'carry' },
-        { field: 'custom_grants_referral_text', label: 'Referral', type: 'data', mode: 'carry' },
-        { field: 'custom_grants_owner_name', label: 'Responsible', type: 'data', mode: 'carry' },
-        { field: 'custom_grants_contact_name', label: 'Contact', type: 'data', mode: 'carry' },
-        { field: 'custom_grants_address_snapshot', label: 'Address', type: 'data', mode: 'carry' },
-        { field: 'custom_grants_primary_communication', label: 'Communication', type: 'data', mode: 'carry' },
-        { field: 'custom_tg_tax_agent', label: 'TG Tax Agent', type: 'data', mode: 'carry' },
-        { field: 'custom_portal_access_received', label: 'Portal Access Received', type: 'check', mode: 'carry' },
-        { field: 'custom_portal_access_expiry_date', label: 'Portal Access Expiry', type: 'date', mode: 'carry' },
-        { field: 'custom_team_members', label: 'Team Members', type: 'none', mode: 'carry' },
-        { field: 'custom_grants_status', label: 'Progress', type: 'data', mode: 'clear' },
-        { field: 'custom_ap_submit_date', label: 'AP Submit', type: 'date', mode: 'clear' },
-        { field: 'custom_industry_approval_date', label: 'Industry Approval', type: 'date', mode: 'clear' },
-        { field: 'custom_tax_lodgement_date', label: 'Tax Lodgement', type: 'date', mode: 'clear' },
-        { field: 'custom_rebate_amount_text', label: 'Rebate', type: 'data', mode: 'clear' },
-        { field: 'custom_fee_percentage_text', label: 'Fee %', type: 'data', mode: 'clear' },
-        { field: 'notes', label: 'Notes', type: 'data', mode: 'clear' },
-      ],
+      lockedCarry: _ROLLOVER_LOCKED_BASE,
+      // FY/CY board boards drive the year; the ERPNext fiscal-year link isn't a
+      // grants column, so keep it out of the grants list.
+      excludeFields: [..._ROLLOVER_EXCLUDE_BASE, 'custom_fiscal_year'],
+      fieldMeta: {
+        // Status is a normal column: default to Clear (= reset to the board default);
+        // the user can switch to Carry or Set a specific status.
+        status: { mode: 'clear' },
+        custom_grants_type: { type: 'select', options: ['R&DTI', 'EMDG'] },
+        custom_grants_priority: { type: 'select', options: ['S1', 'S2', 'S3', 'S4'] },
+        custom_portal_access_received: { type: 'check' },
+        custom_portal_access_expiry_date: { type: 'date' },
+        custom_team_members: { type: 'none' },
+        // Project-level fields default to "clear" (a new year starts fresh).
+        custom_grants_fy_label: { mode: 'clear' },
+        custom_grants_status: { mode: 'clear' },
+        custom_ap_submit_date: { type: 'date', mode: 'clear' },
+        custom_industry_approval_date: { type: 'date', mode: 'clear' },
+        custom_tax_lodgement_date: { type: 'date', mode: 'clear' },
+        custom_rebate_amount_text: { mode: 'clear' },
+        custom_fee_percentage_text: { mode: 'clear' },
+        notes: { mode: 'clear' },
+      },
     };
   }
-  // Smart Accounting roll-over is not enabled yet (planned: same board, fiscal year +1).
-  return { enabled: false };
+  // Smart Accounting: roll over on the SAME board; Fiscal Year defaults to "+1".
+  // Keep everything else by default (users can Clear/Set per field).
+  return {
+    enabled: true,
+    defaultTargetMode: 'same',
+    allowSameBoard: true,
+    // Board list is fetched at open time (accounting has many project types).
+    yearBoards: null,
+    resetStatus: 'Not started',
+    lockedCarry: _ROLLOVER_LOCKED_BASE,
+    excludeFields: _ROLLOVER_EXCLUDE_BASE,
+    fieldMeta: {
+      status: { mode: 'clear' },
+      custom_softwares: { type: 'none' },
+      custom_team_members: { type: 'none' },
+      expected_end_date: { type: 'date' },
+      custom_lodgement_due_date: { type: 'date' },
+      custom_reset_date: { type: 'date' },
+      // Fiscal Year stays in the list with a special "Next year (+1)" mode.
+      custom_fiscal_year: { advance: true, mode: 'advance' },
+    },
+  };
 }
 
 export function getNewProjectModalConfig({ moduleKey = null, currentView = '' } = {}) {

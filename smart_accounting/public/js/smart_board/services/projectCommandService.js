@@ -76,6 +76,7 @@ export class ProjectCommandService {
     overrides = {},
     nameSuffix = '',
     resetStatus = 'Not started',
+    advanceFiscalYear = false,
   } = {}) {
     const names = Array.isArray(sourceNames) ? sourceNames : [];
     if (!names.length) throw new Error('No projects selected');
@@ -89,9 +90,28 @@ export class ProjectCommandService {
         overrides: overrides || {},
         name_suffix: nameSuffix || null,
         reset_status: resetStatus || 'Not started',
+        advance_fiscal_year: advanceFiscalYear ? 1 : 0,
       },
     });
     return r?.message || { created: [], errors: [], count: 0 };
+  }
+
+  /**
+   * Per-field meta for the Project DocType (fieldtype/options/read_only),
+   * used to build the Roll Over "Set new value" editors. Cached per session.
+   */
+  static _rollOverFieldMeta = undefined;
+  static async getRollOverFieldMeta() {
+    if (this._rollOverFieldMeta !== undefined) return this._rollOverFieldMeta;
+    try {
+      const r = await frappe.call({
+        method: 'smart_accounting.api.project_rollover.get_rollover_field_meta',
+      });
+      this._rollOverFieldMeta = (r && r.message) ? r.message : {};
+    } catch (e) {
+      this._rollOverFieldMeta = {};
+    }
+    return this._rollOverFieldMeta;
   }
 
   static async createTask(project, data = {}) {

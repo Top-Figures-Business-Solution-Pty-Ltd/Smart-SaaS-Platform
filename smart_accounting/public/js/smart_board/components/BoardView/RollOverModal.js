@@ -49,16 +49,24 @@ export class RollOverModal {
     const lockedHtml = locked.map((o) => `
       <div class="sb-ro__row sb-ro__row--locked">
         <span class="sb-ro__name">${escapeHtml(o.label || o.field)}</span>
-        <span class="text-muted" style="font-size:12px;">Carry (always)</span>
+        <span class="text-muted" style="font-size:12px;">${escapeHtml(o.note || 'Carry (always)')}</span>
       </div>`).join('');
 
-    // Build the "set" value editor for a field based on its type.
+    const canSetOf = (o) => o.changeable !== false && String(o.type || 'data') !== 'none';
+
+    // Build the "set" value editor for a field based on its real DocType fieldtype.
     const setInput = (o) => {
       const f = escapeHtml(o.field);
       const t = String(o.type || 'data');
-      if (t === 'none') return '';
+      if (!canSetOf(o)) {
+        // Non-editable (child table / read-only / computed): no value box.
+        return '<span class="text-muted sb-ro__noset">—</span>';
+      }
       if (t === 'date') {
         return `<input type="date" class="form-control input-sm sb-ro__val" data-field="${f}" disabled />`;
+      }
+      if (t === 'number') {
+        return `<input type="number" step="any" class="form-control input-sm sb-ro__val" data-field="${f}" placeholder="New value" disabled />`;
       }
       if (t === 'check') {
         return `<select class="form-control input-sm sb-ro__val" data-field="${f}" disabled>
@@ -69,7 +77,8 @@ export class RollOverModal {
       if (t === 'select') {
         const opts = (Array.isArray(o.options) ? o.options : [])
           .map((x) => `<option value="${escapeHtml(x)}">${escapeHtml(x)}</option>`).join('');
-        return `<select class="form-control input-sm sb-ro__val" data-field="${f}" disabled>${opts}</select>`;
+        return `<select class="form-control input-sm sb-ro__val" data-field="${f}" disabled>
+          <option value="">—</option>${opts}</select>`;
       }
       return `<input type="text" class="form-control input-sm sb-ro__val" data-field="${f}" placeholder="New value" disabled />`;
     };
@@ -77,11 +86,15 @@ export class RollOverModal {
     const modeRadios = (o) => {
       const f = escapeHtml(o.field);
       const m = String(o.mode || 'carry');
-      const canSet = String(o.type || 'data') !== 'none';
+      const canSet = canSetOf(o);
+      const advanceRadio = o.advance
+        ? `<label class="sb-ro__mode"><input type="radio" name="sbRoMode_${f}" class="sb-ro__modesel" data-field="${f}" value="advance" ${m === 'advance' ? 'checked' : ''}/><span>Next year (+1)</span></label>`
+        : '';
       return `
+        ${advanceRadio}
         <label class="sb-ro__mode"><input type="radio" name="sbRoMode_${f}" class="sb-ro__modesel" data-field="${f}" value="carry" ${m === 'carry' ? 'checked' : ''}/><span>Carry</span></label>
         <label class="sb-ro__mode"><input type="radio" name="sbRoMode_${f}" class="sb-ro__modesel" data-field="${f}" value="clear" ${m === 'clear' ? 'checked' : ''}/><span>Clear</span></label>
-        ${canSet ? `<label class="sb-ro__mode"><input type="radio" name="sbRoMode_${f}" class="sb-ro__modesel" data-field="${f}" value="set" ${m === 'set' ? 'checked' : ''}/><span>Set</span></label>` : ''}
+        <label class="sb-ro__mode${canSet ? '' : ' sb-ro__mode--disabled'}" title="${canSet ? '' : 'This field can\\'t be set to a new value here'}"><input type="radio" name="sbRoMode_${f}" class="sb-ro__modesel" data-field="${f}" value="set" ${(m === 'set' && canSet) ? 'checked' : ''} ${canSet ? '' : 'disabled'}/><span>Set</span></label>
       `;
     };
 
@@ -97,7 +110,7 @@ export class RollOverModal {
       <div class="sb-ro">
         <div class="text-muted" style="font-size:13px; margin-bottom:12px;">
           Create ${this.count} new project${this.count === 1 ? '' : 's'} from the selected one${this.count === 1 ? '' : 's'}.
-          Status resets to <b>${escapeHtml(cfg.resetStatus || 'Not started')}</b>; the new name keeps the original plus a board tag.
+          Status resets to <b>${escapeHtml(cfg.resetStatus || 'Not started')}</b>; the new name keeps the original plus an auto tag (board / fiscal year).
         </div>
 
         <div class="sb-ro__section">
@@ -215,9 +228,11 @@ export class RollOverModal {
       if (!targetBoard) { this._setError('Please choose a target board.'); return; }
     }
 
-    // Read each field's chosen mode: carry -> carryFields, set -> overrides, clear -> skip.
+    // Read each field's chosen mode:
+    //   carry -> carryFields, set -> overrides, advance -> fiscal-year +1, clear -> skip.
     const carryFields = [];
     const overrides = {};
+    let advanceFiscalYear = false;
     const options = Array.isArray(this.config?.carryOptions) ? this.config.carryOptions : [];
     for (const o of options) {
       const f = String(o.field || '').trim();
@@ -230,11 +245,15 @@ export class RollOverModal {
         const raw = input ? String(input.value ?? '').trim() : '';
         // For "set" we always send the value (empty is a deliberate blank).
         overrides[f] = raw;
+      } else if (mode === 'advance') {
+        // Only the fiscal-year field offers this; backend computes +1 per project.
+        advanceFiscalYear = true;
       }
       // 'clear' -> leave out of both (field starts blank/default).
     }
 
-    const nameSuffix = `(${targetBoard})`;
+    // Name suffix is auto-derived by the backend (board tag, or new fiscal year).
+    const nameSuffix = '';
 
     this._submitting = true;
     const btnCancel = this._modal?._overlay?.querySelector?.('#sbRoCancel');
@@ -244,7 +263,7 @@ export class RollOverModal {
     if (btnConfirm) { btnConfirm.disabled = true; btnConfirm.textContent = 'Rolling over…'; }
 
     try {
-      await this.onConfirm({ targetBoard, carryFields, overrides, nameSuffix });
+      await this.onConfirm({ targetBoard, carryFields, overrides, nameSuffix, advanceFiscalYear });
       this.close();
     } catch (e) {
       this._setError(e?.message || String(e) || 'Roll over failed');

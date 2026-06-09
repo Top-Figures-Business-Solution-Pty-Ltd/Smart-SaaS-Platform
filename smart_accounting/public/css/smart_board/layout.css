@@ -1057,6 +1057,20 @@
     margin: 0;
 }
 
+.sb-ro__mode--disabled {
+    color: #c2c9d1;
+    cursor: not-allowed;
+}
+
+.sb-ro__mode--disabled input {
+    cursor: not-allowed;
+}
+
+.sb-ro__noset {
+    font-size: 12px;
+    opacity: .5;
+}
+
 .sb-ro__set {
     min-width: 0;
 }

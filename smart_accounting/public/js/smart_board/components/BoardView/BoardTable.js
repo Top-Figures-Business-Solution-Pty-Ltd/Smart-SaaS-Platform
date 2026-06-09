@@ -1243,23 +1243,48 @@ export class BoardTable {
         const baseCfg = getRollOverConfig({ moduleKey: this.moduleKey });
         if (!baseCfg?.enabled) return;
 
-        // Order the field list to match the board's columns: currently visible
-        // columns first (in their on-screen order), then the remaining (hidden)
-        // catalog columns, then any carry options that aren't board columns.
-        const cfg = { ...baseCfg, carryOptions: this._orderRollOverOptions(baseCfg.carryOptions) };
+        // Build the field list from the board's actual columns (same labels &
+        // order as the Columns panel): visible columns first, then hidden ones.
+        // Field meta (fieldtype/options/read_only) drives the "Set" editor so it
+        // matches real inline editing; non-editable fields grey out their Set option.
+        const cfg = { ...baseCfg };
+        let fieldMetaMap = {};
+        try { fieldMetaMap = await ProjectCommandService.getRollOverFieldMeta(); } catch (e) { fieldMetaMap = {}; }
+        cfg.carryOptions = this._buildRollOverOptions(cfg, fieldMetaMap);
 
-        const boards = Array.isArray(cfg.yearBoards) ? cfg.yearBoards : [];
         const current = String(this.viewType || '').trim();
 
+        // Board list: grants ships a static FY list; accounting fetches its project
+        // types (excluding grants/archived boards) at open time.
+        let boards = Array.isArray(cfg.yearBoards) ? cfg.yearBoards : [];
+        if (!boards.length) {
+            try {
+                let all = await ProjectTypeService.fetchProjectTypes();
+                all = Array.isArray(all) ? all : [];
+                const allowed = getAllowedProjectTypes();
+                const excluded = getExcludedProjectTypes();
+                boards = all
+                    .map((t) => String(t || '').trim())
+                    .filter((n) => n
+                        && !excluded.includes(n)
+                        && (!allowed.length || allowed.includes(n)));
+            } catch (e) {
+                boards = current ? [current] : [];
+            }
+            if (current && !boards.includes(current)) boards = [current, ...boards];
+        }
+        cfg.yearBoards = boards;
+
         // Default target = the "next year" board when the current board name carries
-        // a 4-digit year (e.g. "FY 2026" -> "FY 2027"); otherwise the first other board.
+        // a 4-digit year (e.g. "FY 2026" -> "FY 2027"); otherwise stay on the current
+        // board (same-board roll over, e.g. Smart Accounting fiscal-year +1).
         let defaultTarget = current;
         const ym = current.match(/(\d{4})/);
         if (ym) {
             const next = current.replace(ym[1], String(Number(ym[1]) + 1));
             if (boards.includes(next)) defaultTarget = next;
             else if (boards.length) defaultTarget = boards.find((b) => b !== current) || boards[0];
-        } else if (boards.length) {
+        } else if (boards.length && !boards.includes(current)) {
             defaultTarget = boards[0];
         }
 
@@ -1268,7 +1293,7 @@ export class BoardTable {
             config: cfg,
             currentBoard: current,
             defaultTargetBoard: defaultTarget,
-            onConfirm: async ({ targetBoard, carryFields, overrides, nameSuffix }) => {
+            onConfirm: async ({ targetBoard, carryFields, overrides, nameSuffix, advanceFiscalYear }) => {
                 const res = await ProjectCommandService.rollOverProjects({
                     sourceNames: names,
                     targetProjectType: targetBoard,
@@ -1276,6 +1301,7 @@ export class BoardTable {
                     overrides,
                     nameSuffix,
                     resetStatus: cfg.resetStatus || 'Not started',
+                    advanceFiscalYear: !!advanceFiscalYear,
                 });
                 const created = Array.isArray(res?.created) ? res.created : [];
                 const errors = Array.isArray(res?.errors) ? res.errors : [];
@@ -1300,36 +1326,80 @@ export class BoardTable {
         await modal.open();
     }
 
-    // Reorder roll-over carry options to mirror the board's Columns order:
-    // visible columns first (current on-screen order), then hidden catalog columns,
-    // then any options that aren't columns (e.g. Team Members).
-    _orderRollOverOptions(carryOptions = []) {
-        const opts = Array.isArray(carryOptions) ? carryOptions : [];
-        const byField = new Map(opts.map((o) => [o.field, o]));
+    // Build the roll-over field list from the board's actual columns so it always
+    // mirrors what the user displays (same labels & order as the Columns panel):
+    // visible columns first (on-screen order), then hidden catalog columns.
+    // - team role pseudo-columns (team:Preparer, ...) collapse into one Team Members row
+    // - computed/virtual (__sb_*) and excluded/locked fields are dropped
+    // - fieldMeta supplies the "Set" editor type/options and the default mode
+    // Map a Project DocType fieldtype to the modal's "Set" editor kind.
+    _rollOverEditorType(fieldtype) {
+        const ft = String(fieldtype || '');
+        if (ft === 'Select') return 'select';
+        if (ft === 'Check') return 'check';
+        if (ft === 'Date' || ft === 'Datetime') return 'date';
+        if (['Int', 'Float', 'Currency', 'Percent'].includes(ft)) return 'number';
+        if (ft === 'Table' || ft === 'Table MultiSelect') return 'none';
+        return 'data';
+    }
 
-        const visibleFields = (this._renderColumns || [])
-            .map((c) => c && c.field)
-            .filter(Boolean);
+    _buildRollOverOptions(cfg = {}, fieldMetaMap = {}) {
+        const cfgMeta = cfg.fieldMeta || {};
+        const meta = fieldMetaMap || {};
+        const exclude = new Set(Array.isArray(cfg.excludeFields) ? cfg.excludeFields : []);
+        const lockedSet = new Set((Array.isArray(cfg.lockedCarry) ? cfg.lockedCarry : []).map((o) => o.field));
 
-        let catalogFields = [];
+        const cols = [];
+        (this._renderColumns || []).forEach((c) => { if (c) cols.push(c); });
         try {
             const catalog = getProjectColumnCatalogForModule(PROJECT_COLUMN_CATALOG || [], this.moduleKey, { includeHidden: true });
-            catalogFields = (catalog || []).map((c) => c && c.field).filter(Boolean);
-        } catch (e) { catalogFields = []; }
+            (catalog || []).forEach((c) => { if (c) cols.push(c); });
+        } catch (e) { /* ignore */ }
 
         const seen = new Set();
-        const ordered = [];
-        const take = (field) => {
-            if (byField.has(field) && !seen.has(field)) {
-                seen.add(field);
-                ordered.push(byField.get(field));
+        const out = [];
+        for (const c of cols) {
+            let field = String(c.field || '').trim();
+            if (!field) continue;
+            if (field.startsWith('team:')) field = 'custom_team_members';
+            if (field.startsWith('__sb')) continue;
+            if (exclude.has(field)) continue;
+            if (lockedSet.has(field)) continue;
+            if (seen.has(field)) continue;
+            seen.add(field);
+
+            const cm = cfgMeta[field] || {};
+            const fm = meta[field] || null;
+
+            // Editor type/options: prefer real DocType meta, fall back to config hints.
+            let type;
+            let options;
+            let changeable;
+            if (fm && fm.fieldtype) {
+                type = this._rollOverEditorType(fm.fieldtype);
+                options = (Array.isArray(fm.options) && fm.options.length) ? fm.options : undefined;
+                changeable = type !== 'none' && !fm.read_only;
+            } else {
+                type = cm.type || 'data';
+                options = Array.isArray(cm.options) ? cm.options : undefined;
+                changeable = type !== 'none';
             }
-        };
-        visibleFields.forEach(take);
-        catalogFields.forEach(take);
-        // Append remaining options that aren't board columns, preserving config order.
-        opts.forEach((o) => { if (!seen.has(o.field)) { seen.add(o.field); ordered.push(o); } });
-        return ordered;
+
+            const label = field === 'custom_team_members'
+                ? 'Team Members'
+                : (c.label || (fm && fm.label) || field);
+
+            out.push({
+                field,
+                label,
+                type,
+                options,
+                changeable,
+                advance: cm.advance === true,
+                mode: cm.mode || 'carry',
+            });
+        }
+        return out;
     }
 
     async _reloadCurrentProjects() {
