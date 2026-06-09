@@ -9,10 +9,10 @@ SMART_GRANTS_ROLE = "Smart Grants User"
 SMART_GRANTS_PROJECT_TYPE = "Smart Grants"
 # Per-year Smart Grants boards. Projects are grouped onto these boards by year.
 SMART_GRANTS_YEAR_BOARDS = (
-    "Grants 2024",
-    "Grants 2025",
-    "Grants 2026",
-    "Grants 2027",
+    "FY 2024",
+    "FY 2025",
+    "FY 2026",
+    "FY 2027",
 )
 # Placeholder Project Type that holds archived projects whose original board/type
 # was deleted. It is intentionally NOT shown as a board (see allowed/excluded

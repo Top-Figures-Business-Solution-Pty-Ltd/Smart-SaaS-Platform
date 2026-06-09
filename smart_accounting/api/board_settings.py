@@ -87,10 +87,10 @@ def _get_project_status_pool() -> list[str]:
 SMART_GRANTS_BOARDS: set[str] = {
 	# Legacy aggregated "Smart Grants" board was removed (see
 	# patches.drop_smart_grants_board); only the per-year boards remain.
-	"Grants 2024",
-	"Grants 2025",
-	"Grants 2026",
-	"Grants 2027",
+	"FY 2024",
+	"FY 2025",
+	"FY 2026",
+	"FY 2027",
 }
 
 # Smart Grants boards use a fixed, code-managed status set AND order (not the

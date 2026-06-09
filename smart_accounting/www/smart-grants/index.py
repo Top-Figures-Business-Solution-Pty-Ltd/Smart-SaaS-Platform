@@ -10,5 +10,5 @@ def get_context(context):
 	context.brand_name = "Smart Grants"
 	context.brand_tagline = "Grants workspace"
 	# Legacy aggregated "Smart Grants" board was removed; land on the first year board.
-	context.grants_project_type = "Grants 2024"
+	context.grants_project_type = "FY 2024"
 	return context

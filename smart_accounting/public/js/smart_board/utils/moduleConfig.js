@@ -167,7 +167,7 @@ export function getNewProjectModalConfig({ moduleKey = null, currentView = '' } 
   if (key === 'grants') {
     // Smart Grants projects are grouped onto per-year boards. The create form lets the
     // user pick which year board the project belongs to (defaulting to the current year board).
-    const GRANTS_YEAR_BOARDS = ['Grants 2024', 'Grants 2025', 'Grants 2026', 'Grants 2027'];
+    const GRANTS_YEAR_BOARDS = ['FY 2024', 'FY 2025', 'FY 2026', 'FY 2027'];
     return {
       visibleFields: {
         company: true,
@@ -179,7 +179,7 @@ export function getNewProjectModalConfig({ moduleKey = null, currentView = '' } 
       requiredFields: ['project_name', 'customer', 'company', 'project_type'],
       projectTypeOptions: GRANTS_YEAR_BOARDS,
       defaultValues: {
-        project_type: 'Grants 2026',
+        project_type: 'FY 2026',
         custom_project_frequency: 'One-off',
         // Smart Grants defaults to the "Top Grants" company (Smart Accounting uses
         // its own first company, typically "Top Figures").
