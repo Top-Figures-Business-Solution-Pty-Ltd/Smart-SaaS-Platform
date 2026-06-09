@@ -113,8 +113,9 @@ def _project_custom_fields() -> list[dict]:
             "fieldname": "custom_grants_priority",
             "label": "Grants Priority",
             "fieldtype": "Select",
-            # S1–S4 represent the four quarters (handy for reporting/aggregation).
-            "options": "S1\nS2\nS3\nS4",
+            # Leading blank → a real "empty" (-) choice so new/rolled-over projects
+            # are NOT forced to S1. S1–S4 represent the four quarters.
+            "options": "\nS1\nS2\nS3\nS4",
             "insert_after": "custom_grants_type",
         },
         {
@@ -201,11 +202,19 @@ def _project_custom_fields() -> list[dict]:
             "fieldtype": "Data",
             "insert_after": "custom_rebate_amount_text",
         },
+        # Contract fee structure (may span multiple years, e.g. "Y1 20%, Y2 15%").
+        # Distinct from Fee Percentage, which holds this project/year's actual rate.
+        {
+            "fieldname": "custom_fee_arrangement",
+            "label": "Fee Arrangement",
+            "fieldtype": "Small Text",
+            "insert_after": "custom_fee_percentage_text",
+        },
         {
             "fieldname": "custom_portal_access_expiry_date",
             "label": "Portal Access Expiry Date",
             "fieldtype": "Date",
-            "insert_after": "custom_fee_percentage_text",
+            "insert_after": "custom_fee_arrangement",
         },
         # Board row highlight (driven by Smart Grants automations). Hidden on the form;
         # stores the highlight color and the automation that owns it (for Plan A auto-cancel).

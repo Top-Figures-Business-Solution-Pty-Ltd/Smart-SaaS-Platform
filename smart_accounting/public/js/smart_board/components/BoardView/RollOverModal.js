@@ -94,7 +94,7 @@ export class RollOverModal {
         ${advanceRadio}
         <label class="sb-ro__mode"><input type="radio" name="sbRoMode_${f}" class="sb-ro__modesel" data-field="${f}" value="carry" ${m === 'carry' ? 'checked' : ''}/><span>Carry</span></label>
         <label class="sb-ro__mode"><input type="radio" name="sbRoMode_${f}" class="sb-ro__modesel" data-field="${f}" value="clear" ${m === 'clear' ? 'checked' : ''}/><span>Clear</span></label>
-        <label class="sb-ro__mode${canSet ? '' : ' sb-ro__mode--disabled'}" title="${canSet ? '' : 'This field can\\'t be set to a new value here'}"><input type="radio" name="sbRoMode_${f}" class="sb-ro__modesel" data-field="${f}" value="set" ${(m === 'set' && canSet) ? 'checked' : ''} ${canSet ? '' : 'disabled'}/><span>Set</span></label>
+        <label class="sb-ro__mode${canSet ? '' : ' sb-ro__mode--disabled'}" title="${canSet ? '' : 'This field cannot be set to a new value here'}"><input type="radio" name="sbRoMode_${f}" class="sb-ro__modesel" data-field="${f}" value="set" ${(m === 'set' && canSet) ? 'checked' : ''} ${canSet ? '' : 'disabled'}/><span>Set</span></label>
       `;
     };
 

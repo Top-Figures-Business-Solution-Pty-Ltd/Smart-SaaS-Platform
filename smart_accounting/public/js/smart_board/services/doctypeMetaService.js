@@ -10,11 +10,16 @@ function storageKey(doctype) {
   return `${STORAGE_PREFIX}${String(doctype || '')}`;
 }
 
-function parseOptions(str) {
-  return String(str || '')
+function parseOptions(str, { keepLeadingBlank = false } = {}) {
+  const parts = String(str || '')
     .split('\n')
-    .map((s) => s.trim())
-    .filter(Boolean);
+    .map((s) => s.trim());
+  // A leading blank line in a Select's options means "empty is a valid choice".
+  // Callers that want to surface a clear/"—" option opt in via keepLeadingBlank.
+  const hadLeadingBlank = parts.length > 0 && parts[0] === '';
+  const cleaned = parts.filter(Boolean);
+  if (keepLeadingBlank && hadLeadingBlank) return ['', ...cleaned];
+  return cleaned;
 }
 
 export class DoctypeMetaService {
@@ -74,11 +79,11 @@ export class DoctypeMetaService {
     return p;
   }
 
-  static async getSelectOptions(doctype, fieldname, { force = false } = {}) {
+  static async getSelectOptions(doctype, fieldname, { force = false, keepLeadingBlank = false } = {}) {
     const meta = await this.getMeta(doctype, { force });
     const fields = meta?.fields || [];
     const f = fields.find((x) => String(x?.fieldname || '') === String(fieldname || '')) || null;
-    return parseOptions(f?.options);
+    return parseOptions(f?.options, { keepLeadingBlank });
   }
 }
 

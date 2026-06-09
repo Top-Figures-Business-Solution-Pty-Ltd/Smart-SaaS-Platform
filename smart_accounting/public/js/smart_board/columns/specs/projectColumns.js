@@ -236,8 +236,10 @@ async function getProjectSelectOptions(fieldname) {
   if (_projectSelectOptionsLoading.has(fn)) return _projectSelectOptionsLoading.get(fn);
   const p = (async () => {
     try {
-      const opts = await DoctypeMetaService.getSelectOptions('Project', fn, { force: true });
-      const list = Array.isArray(opts) ? opts.filter(Boolean) : [];
+      // keepLeadingBlank: fields whose options start with a blank line (e.g.
+      // custom_grants_priority) expose a "—" clear choice; others are unaffected.
+      const opts = await DoctypeMetaService.getSelectOptions('Project', fn, { force: true, keepLeadingBlank: true });
+      const list = Array.isArray(opts) ? opts.map((v) => (v == null ? '' : String(v))) : [];
       _projectSelectOptionsCache.set(fn, list);
       return list;
     } catch (e) {
@@ -270,7 +272,7 @@ function projectFieldMenuEditor({ cellEl, project, manager, field }) {
   getProjectSelectOptions(field).then((opts) => {
     if (!contentEl?.isConnected) return;
     if (Array.isArray(opts) && opts.length) {
-      ed.options = opts.map((v) => ({ value: v, label: v, color: STATUS_COLORS[v] || '' }));
+      ed.options = opts.map((v) => ({ value: v, label: v || '—', color: STATUS_COLORS[v] || '' }));
       ed.render();
       mountEditorHelpers(manager, contentEl, ed);
     }
@@ -668,6 +670,7 @@ export function makeProjectColumnSpecs() {
     { field: 'custom_grants_contact_name', isEditable: true, renderEditor: grantsPopoverEditor },
     { field: 'custom_rebate_amount_text', isEditable: true, renderEditor: grantsPopoverEditor },
     { field: 'custom_fee_percentage_text', isEditable: true, renderEditor: grantsPopoverEditor },
+    { field: 'custom_fee_arrangement', isEditable: true, renderEditor: grantsPopoverEditor },
     {
       field: 'custom_grants_type',
       isEditable: true,

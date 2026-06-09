@@ -196,6 +196,7 @@ export const PROJECT_COLUMN_CATALOG = [
     { field: 'custom_tax_lodgement_date', label: 'Tax Lodgement Date', width: 170 },
     { field: 'custom_rebate_amount_text', label: 'Rebate Amount', width: 150 },
     { field: 'custom_fee_percentage_text', label: 'Fee Percentage', width: 140 },
+    { field: 'custom_fee_arrangement', label: 'Fee Arrangement', width: 220 },
     { field: 'custom_reset_date', label: 'Reset Date', width: 130 },
     { field: 'custom_ato_status', label: 'ATO Status', width: 140 },
     { field: 'custom_lodgeit_status', label: 'LodgeIT Status', width: 150 },
@@ -281,6 +282,7 @@ function makeGrantsDefaultColumns() {
         { field: 'custom_tax_lodgement_date', label: 'Tax Lodgement', width: 170 },
         { field: 'custom_rebate_amount_text', label: 'Rebate', width: 150 },
         { field: 'custom_fee_percentage_text', label: 'Fee %', width: 130 },
+        { field: 'custom_fee_arrangement', label: 'Fee Arrangement', width: 220 },
         { field: 'modified', label: 'Last Updated', width: 160 }
     ];
 }
