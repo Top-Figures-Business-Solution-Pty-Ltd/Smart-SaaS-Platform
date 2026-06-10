@@ -78,7 +78,7 @@ export class RollOverModal {
         const opts = (Array.isArray(o.options) ? o.options : [])
           .map((x) => `<option value="${escapeHtml(x)}">${escapeHtml(x)}</option>`).join('');
         return `<select class="form-control input-sm sb-ro__val" data-field="${f}" disabled>
-          <option value="">—</option>${opts}</select>`;
+          <option value="">— Clear —</option>${opts}</select>`;
       }
       return `<input type="text" class="form-control input-sm sb-ro__val" data-field="${f}" placeholder="New value" disabled />`;
     };
