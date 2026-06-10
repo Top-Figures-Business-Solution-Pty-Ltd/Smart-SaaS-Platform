@@ -1293,11 +1293,12 @@ export class BoardTable {
             config: cfg,
             currentBoard: current,
             defaultTargetBoard: defaultTarget,
-            onConfirm: async ({ targetBoard, carryFields, overrides, nameSuffix, advanceFiscalYear, advanceYearFields, archiveSource }) => {
+            onConfirm: async ({ targetBoard, carryFields, clearFields, overrides, nameSuffix, advanceFiscalYear, advanceYearFields, archiveSource }) => {
                 const res = await ProjectCommandService.rollOverProjects({
                     sourceNames: names,
                     targetProjectType: targetBoard,
                     carryFields,
+                    clearFields,
                     overrides,
                     nameSuffix,
                     resetStatus: cfg.resetStatus || 'Not started',

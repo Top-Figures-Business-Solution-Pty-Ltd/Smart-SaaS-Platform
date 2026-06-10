@@ -245,6 +245,7 @@ def roll_over_projects(
     advance_fiscal_year: Any = 0,
     advance_year_fields: Any = None,
     archive_source: Any = 0,
+    clear_fields: Any = None,
 ) -> dict:
     """
     Create roll-over copies of the given projects.
@@ -272,6 +273,15 @@ def roll_over_projects(
     carry = {str(f).strip() for f in _normalize_list(carry_fields) if str(f).strip()}
     carry_simple = carry & allowed
     carry_children = carry & CARRY_CHILD_TABLES
+
+    # Fields the user explicitly chose to "Clear" -> forced empty (so they don't
+    # fall back to the field's DocType default, e.g. a "January" month default).
+    # status / structural fields are handled separately and never blanked here.
+    _CLEAR_SKIP = {"status", "project_name", "project_type", "customer", "company"}
+    clear_simple = (
+        {str(f).strip() for f in _normalize_list(clear_fields) if str(f).strip()}
+        & allowed
+    ) - _CLEAR_SKIP
 
     ov_raw = _parse_obj(overrides)
     ov = {k: v for k, v in ov_raw.items() if k in allowed or k in _OVERRIDE_EXTRA}
@@ -356,6 +366,21 @@ def roll_over_projects(
             if "custom_year_end" in carry_simple or "custom_year_end" in ov:
                 new.flags.skip_year_end_autosync = True
 
+            # Explicitly blank "Clear" fields so the DocType default (e.g. a month
+            # default like January) can't sneak back in for a cleared column.
+            for f in clear_simple:
+                new.set(f, None)
+
+            # Snapshot the values we deliberately control, so we can re-assert them
+            # after insert if any create-time default / fetch_from / sync mutates them.
+            controlled = (
+                (carry_simple | set(ov.keys()) | advance_years | clear_simple)
+                - _CLEAR_SKIP
+            )
+            if advance_fy:
+                controlled.add("custom_fiscal_year")
+            intended = {f: new.get(f) for f in controlled}
+
             # Build the new name: keep the original (minus any prior roll-over tag) and
             # ALWAYS append a distinguishing suffix so it never collides with the source.
             # Suffix priority: explicit > target board (if changed) > new fiscal year
@@ -378,6 +403,22 @@ def roll_over_projects(
             new.project_name = _unique_project_name(base, tag)
 
             new.insert()
+
+            # Re-assert any controlled value that drifted during insert (defaults,
+            # fetch_from, customer-entity sync, etc.). Direct DB write — values come
+            # from the user's explicit carry/set/clear choices, so they are trusted.
+            fixups = {}
+            for f, want in intended.items():
+                got = new.get(f)
+                want_s = "" if want in (None, "") else str(want)
+                got_s = "" if got in (None, "") else str(got)
+                if want_s != got_s:
+                    fixups[f] = (want if want not in (None, "") else None)
+            if fixups:
+                frappe.db.set_value("Project", new.name, fixups, update_modified=False)
+                for f, v in fixups.items():
+                    new.set(f, v)
+
             created.append(
                 {
                     "name": new.name,

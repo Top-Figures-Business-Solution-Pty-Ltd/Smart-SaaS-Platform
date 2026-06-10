@@ -245,6 +245,7 @@ export class RollOverModal {
     // Read each field's chosen mode:
     //   carry -> carryFields, set -> overrides, advance -> fiscal-year +1, clear -> skip.
     const carryFields = [];
+    const clearFields = [];
     const overrides = {};
     const advanceYearFields = [];
     let advanceFiscalYear = false;
@@ -266,8 +267,10 @@ export class RollOverModal {
       } else if (mode === 'advance_year') {
         // Date fields (e.g. Lodgement Due): backend sets source date + 1 year.
         advanceYearFields.push(f);
+      } else if (mode === 'clear') {
+        // Explicitly clear -> backend forces empty (so a field default can't apply).
+        clearFields.push(f);
       }
-      // 'clear' -> leave out of both (field starts blank/default).
     }
 
     const archiveSource = !!root?.querySelector?.('#sbRoArchiveSrc')?.checked;
@@ -283,7 +286,7 @@ export class RollOverModal {
     if (btnConfirm) { btnConfirm.disabled = true; btnConfirm.textContent = 'Rolling over…'; }
 
     try {
-      await this.onConfirm({ targetBoard, carryFields, overrides, nameSuffix, advanceFiscalYear, advanceYearFields, archiveSource });
+      await this.onConfirm({ targetBoard, carryFields, clearFields, overrides, nameSuffix, advanceFiscalYear, advanceYearFields, archiveSource });
       this.close();
     } catch (e) {
       this._setError(e?.message || String(e) || 'Roll over failed');
