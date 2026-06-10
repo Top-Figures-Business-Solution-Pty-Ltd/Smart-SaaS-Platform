@@ -235,7 +235,9 @@ export function getRollOverConfig({ moduleKey = null } = {}) {
       custom_softwares: { type: 'none' },
       custom_team_members: { type: 'none' },
       expected_end_date: { type: 'date' },
-      custom_lodgement_due_date: { type: 'date' },
+      // Lodgement Due offers a "Next year (+1)" mode (source date + 1 year), in
+      // addition to Carry / Clear / Set.
+      custom_lodgement_due_date: { type: 'date', advanceYear: true },
       custom_reset_date: { type: 'date' },
       // Fiscal Year stays in the list with a special "Next year (+1)" mode.
       custom_fiscal_year: { advance: true, mode: 'advance' },

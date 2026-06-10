@@ -21,7 +21,7 @@ import re
 from typing import Any
 
 import frappe
-from frappe.utils import today
+from frappe.utils import add_months, get_last_day, getdate, today
 
 from .project_board import _ensure_logged_in, _normalize_list
 
@@ -73,14 +73,78 @@ _FY_TAG_RE = re.compile(
     re.IGNORECASE,
 )
 
+# A trailing "(Roll Over)" / "(Roll Over 2)" tag added by a previous roll over.
+_RO_TAG_RE = re.compile(r"\s*\(\s*roll\s*over(?:\s+\d+)?\s*\)\s*$", re.IGNORECASE)
+
 
 def _strip_trailing_tag(name: str) -> str:
-    """Remove a trailing ' (FY 2027)'-style tag so repeated roll overs don't stack."""
+    """Remove trailing ' (FY 2027)' / ' (Roll Over)' tags so repeated roll overs
+    don't stack the same suffix over and over."""
     prev = None
     out = str(name or "")
     while prev != out:
         prev = out
         out = _FY_TAG_RE.sub("", out).strip()
+        out = _RO_TAG_RE.sub("", out).strip()
+    return out
+
+
+def _unique_project_name(base: str, tag: str) -> str:
+    """Build a project_name from base + tag that is unique (project_name has a
+    UNIQUE index). On collision a counter is folded INTO the tag, e.g.
+    "Acme (Roll Over)" -> "Acme (Roll Over 2)" / "Acme (ASIC)" -> "Acme (ASIC 2)".
+    """
+    base = str(base or "").strip()
+    tag = str(tag or "").strip()
+    first = (f"{base} {tag}").strip() if tag else base
+    if not first:
+        first = base or "Project"
+    if not frappe.db.exists("Project", {"project_name": first}):
+        return first
+
+    inner = tag[1:-1].strip() if (tag.startswith("(") and tag.endswith(")")) else tag
+    n = 2
+    while True:
+        if inner:
+            cand = (f"{base} ({inner} {n})").strip()
+        else:
+            cand = (f"{base} ({n})").strip()
+        if not frappe.db.exists("Project", {"project_name": cand}):
+            return cand
+        n += 1
+
+
+def _plus_one_year(value: Any) -> Any:
+    """Return `value` (a date) advanced by exactly one year.
+
+    Preserves an end-of-month date (e.g. 30 Jun -> 30 Jun next year; 28/29 Feb is
+    handled by add_months). Returns None when value is empty/unparseable.
+    """
+    if not value:
+        return None
+    try:
+        d = getdate(value)
+    except Exception:
+        return None
+    nxt = add_months(d, 12)
+    # Keep month-end alignment for dates that sit on the last day of the month.
+    if d == get_last_day(d):
+        nxt = get_last_day(nxt)
+    return nxt
+
+
+def _date_fields() -> set:
+    """Project Date/Datetime fieldnames (targets eligible for the +1 year mode)."""
+    try:
+        meta = frappe.get_meta("Project")
+    except Exception:
+        return set()
+    out = set()
+    for df in (meta.fields or []):
+        if getattr(df, "fieldtype", None) in ("Date", "Datetime"):
+            fn = getattr(df, "fieldname", None)
+            if fn:
+                out.add(fn)
     return out
 
 
@@ -179,6 +243,8 @@ def roll_over_projects(
     name_suffix: str | None = None,
     reset_status: str | None = "Not started",
     advance_fiscal_year: Any = 0,
+    advance_year_fields: Any = None,
+    archive_source: Any = 0,
 ) -> dict:
     """
     Create roll-over copies of the given projects.
@@ -214,9 +280,18 @@ def roll_over_projects(
     suffix = str(name_suffix or "").strip()
     status_value = str(reset_status or "").strip() or "Not started"
     advance_fy = str(advance_fiscal_year) in ("1", "true", "True", "yes")
+    archive_src = str(archive_source) in ("1", "true", "True", "yes")
+
+    # Date fields to advance by +1 year (e.g. Lodgement Due "Next year"). Restricted
+    # to real Date/Datetime Project fields the user is allowed to carry.
+    date_fields = _date_fields()
+    advance_years = {
+        str(f).strip() for f in _normalize_list(advance_year_fields) if str(f).strip()
+    } & allowed & date_fields
 
     created: list[dict] = []
     errors: list[dict] = []
+    archived: list[str] = []
 
     for name in names:
         try:
@@ -267,21 +342,40 @@ def roll_over_projects(
                 if nxt:
                     new.set("custom_fiscal_year", nxt)
 
-            # Build the new name: explicit suffix wins, else auto-tag by the action —
-            # the target board when it changed, otherwise the (advanced) fiscal year.
+            # Date fields advanced by +1 year (e.g. Lodgement Due "Next year"),
+            # computed from the SOURCE value. Explicit Set overrides win.
+            for f in advance_years:
+                if f in ov:
+                    continue
+                nd = _plus_one_year(src.get(f))
+                if nd is not None:
+                    new.set(f, nd)
+
+            # When the user carried (or set) Year End, lock it so the create-time
+            # Customer-Entity auto-sync can't overwrite the rolled-over value.
+            if "custom_year_end" in carry_simple or "custom_year_end" in ov:
+                new.flags.skip_year_end_autosync = True
+
+            # Build the new name: keep the original (minus any prior roll-over tag) and
+            # ALWAYS append a distinguishing suffix so it never collides with the source.
+            # Suffix priority: explicit > target board (if changed) > new fiscal year
+            # (if changed) > "(Roll Over)". A counter is folded in on any remaining clash.
             base = _strip_trailing_tag(src.get("project_name") or "") or (src.get("project_name") or "")
             tag = suffix
+            if tag and not (tag.startswith("(") and tag.endswith(")")):
+                tag = f"({tag})"
             if not tag:
                 src_pt = str(src.get("project_type") or "").strip()
                 new_pt = str(new.get("project_type") or "").strip()
+                new_fy = str(new.get("custom_fiscal_year") or "").strip()
+                src_fy = str(src.get("custom_fiscal_year") or "").strip()
                 if new_pt and new_pt != src_pt:
                     tag = f"({new_pt})"
+                elif new_fy and new_fy != src_fy:
+                    tag = f"({new_fy})"
                 else:
-                    new_fy = str(new.get("custom_fiscal_year") or "").strip()
-                    src_fy = str(src.get("custom_fiscal_year") or "").strip()
-                    if new_fy and new_fy != src_fy:
-                        tag = f"({new_fy})"
-            new.project_name = (base + ((" " + tag) if tag else "")).strip() or base
+                    tag = "(Roll Over)"
+            new.project_name = _unique_project_name(base, tag)
 
             new.insert()
             created.append(
@@ -295,7 +389,29 @@ def roll_over_projects(
         except Exception as e:
             errors.append({"source": name, "error": str(e)})
 
-    if created:
+    # Archive the originals (only those that produced a copy) when requested, so a
+    # roll over can replace the previous cycle in one step instead of a manual archive.
+    if archive_src and created:
+        rolled_sources = {c.get("source") for c in created}
+        for sname in rolled_sources:
+            try:
+                doc = frappe.get_doc("Project", sname)
+                if str(getattr(doc, "is_active", "") or "").strip() == "No":
+                    continue
+                doc.is_active = "No"
+                doc._sb_archive_source = "manual"
+                doc.flags.skip_board_automation = True
+                doc.save()
+                archived.append(sname)
+            except Exception as e:
+                errors.append({"source": sname, "error": f"Archive failed: {e}"})
+
+    if created or archived:
         frappe.db.commit()
 
-    return {"created": created, "errors": errors, "count": len(created)}
+    return {
+        "created": created,
+        "errors": errors,
+        "count": len(created),
+        "archived": archived,
+    }

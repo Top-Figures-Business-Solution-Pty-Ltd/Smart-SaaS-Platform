@@ -1293,7 +1293,7 @@ export class BoardTable {
             config: cfg,
             currentBoard: current,
             defaultTargetBoard: defaultTarget,
-            onConfirm: async ({ targetBoard, carryFields, overrides, nameSuffix, advanceFiscalYear }) => {
+            onConfirm: async ({ targetBoard, carryFields, overrides, nameSuffix, advanceFiscalYear, advanceYearFields, archiveSource }) => {
                 const res = await ProjectCommandService.rollOverProjects({
                     sourceNames: names,
                     targetProjectType: targetBoard,
@@ -1302,9 +1302,12 @@ export class BoardTable {
                     nameSuffix,
                     resetStatus: cfg.resetStatus || 'Not started',
                     advanceFiscalYear: !!advanceFiscalYear,
+                    advanceYearFields: Array.isArray(advanceYearFields) ? advanceYearFields : [],
+                    archiveSource: !!archiveSource,
                 });
                 const created = Array.isArray(res?.created) ? res.created : [];
                 const errors = Array.isArray(res?.errors) ? res.errors : [];
+                const archived = Array.isArray(res?.archived) ? res.archived : [];
 
                 if (!created.length && errors.length) {
                     throw new Error(errors[0]?.error || 'Roll over failed');
@@ -1312,8 +1315,10 @@ export class BoardTable {
 
                 this._clearSelection();
                 if (created.length) {
-                    notify(`Rolled over ${created.length} project${created.length === 1 ? '' : 's'} to ${targetBoard}`, 'green');
-                    if (targetBoard === current) {
+                    const archMsg = archived.length ? ` (archived ${archived.length} original${archived.length === 1 ? '' : 's'})` : '';
+                    notify(`Rolled over ${created.length} project${created.length === 1 ? '' : 's'} to ${targetBoard}${archMsg}`, 'green');
+                    // Reload when copies land here OR originals on this board were archived.
+                    if (targetBoard === current || archived.length) {
                         try { await this._reloadCurrentProjects(); } catch (e) { console.error(e); }
                     }
                 }
@@ -1396,6 +1401,7 @@ export class BoardTable {
                 options,
                 changeable,
                 advance: cm.advance === true,
+                advanceYear: cm.advanceYear === true,
                 mode: cm.mode || 'carry',
             });
         }

@@ -1,7 +1,14 @@
 /**
- * ClientProjectsTable (read-only)
- * - Fixed columns to keep the "aggregate view" simple and safe
+ * ClientProjectsTable
+ * - Aggregated Projects list (Client / Project Type / Project Name / Status + "Open Board").
+ * - Mostly read-only; the Status cell is inline-editable (same menu/options as the
+ *   board) so users can quickly re-status a project from the Home status page.
+ *   To change any OTHER column, open the board.
  */
+import { STATUS_COLORS } from '../../utils/constants.js';
+import { BoardStatusService } from '../../services/boardStatusService.js';
+import { InlineMenuSelectEditor } from '../Common/editors/InlineMenuSelectEditor.js';
+
 function _esc(s) {
   return String(s ?? '')
     .replaceAll('&', '&amp;')
@@ -11,16 +18,30 @@ function _esc(s) {
     .replaceAll("'", '&#39;');
 }
 
+function _statusCellHtml(status) {
+  const v = String(status || '').trim();
+  if (!v) {
+    return '<span class="text-muted">—</span><span class="sb-afford sb-afford--select">▾</span>';
+  }
+  const color = STATUS_COLORS[v] || '#6c757d';
+  return `<span class="status-badge" style="background-color:${_esc(color)};">${_esc(v)}</span><span class="sb-afford sb-afford--select">▾</span>`;
+}
+
 export class ClientProjectsTable {
-  constructor(container, { onOpenBoard, onLoadMore } = {}) {
+  constructor(container, { onOpenBoard, onLoadMore, onChangeStatus } = {}) {
     this.container = container;
     this.onOpenBoard = onOpenBoard || (() => {});
     this.onLoadMore = onLoadMore || (() => {});
+    this.onChangeStatus = onChangeStatus || (async () => {});
     this._items = [];
     this._onClick = null;
+    this._activeEditor = null;
+    this._editingIdx = null;
   }
 
   render({ items = [], loading = false, loadingMore = false, error = null, totalCount = 0, hasMore = false } = {}) {
+    // Tear down any open status editor before we replace the DOM.
+    this._closeEditor();
     this._items = Array.isArray(items) ? items : [];
     const total = Math.max(Number(totalCount) || 0, this._items.length);
 
@@ -28,7 +49,6 @@ export class ClientProjectsTable {
       const customer = _esc(p?.customer || '');
       const pt = _esc(p?.project_type || '');
       const pn = _esc(p?.project_name || p?.name || '');
-      const st = _esc(p?.status || '');
       return `
         <tr data-idx="${idx}">
           <td style="width:140px;">
@@ -37,7 +57,7 @@ export class ClientProjectsTable {
           <td>${customer}</td>
           <td>${pt}</td>
           <td>${pn}</td>
-          <td>${st}</td>
+          <td class="sb-cp__status" data-action="edit-status" title="Click to change status" style="cursor:pointer;">${_statusCellHtml(p?.status)}</td>
         </tr>
       `;
     }).join('');
@@ -87,22 +107,98 @@ export class ClientProjectsTable {
         this.onLoadMore();
         return;
       }
-      const btn = e.target?.closest?.('button[data-action="open-board"]');
-      if (!btn) return;
-      const tr = btn.closest('tr[data-idx]');
-      const idx = Number(tr?.dataset?.idx);
-      const p = this._items?.[idx];
-      if (!p) return;
-      this.onOpenBoard(p);
+      const openBtn = e.target?.closest?.('button[data-action="open-board"]');
+      if (openBtn) {
+        const tr = openBtn.closest('tr[data-idx]');
+        const idx = Number(tr?.dataset?.idx);
+        const p = this._items?.[idx];
+        if (p) this.onOpenBoard(p);
+        return;
+      }
+      const statusCell = e.target?.closest?.('td[data-action="edit-status"]');
+      if (statusCell) {
+        const tr = statusCell.closest('tr[data-idx]');
+        const idx = Number(tr?.dataset?.idx);
+        this._openStatusEditor(statusCell, idx);
+      }
     };
     this.container.addEventListener('click', this._onClick);
   }
 
+  _closeEditor() {
+    if (this._activeEditor) {
+      try { this._activeEditor.destroy?.(); } catch (e) {}
+      this._activeEditor = null;
+    }
+    this._editingIdx = null;
+  }
+
+  _openStatusEditor(cellEl, idx) {
+    const p = this._items?.[idx];
+    if (!p || !cellEl) return;
+    // Toggle: clicking the same open cell closes it.
+    if (this._activeEditor && this._editingIdx === idx) {
+      this._closeEditor();
+      cellEl.innerHTML = _statusCellHtml(p.status);
+      return;
+    }
+    this._closeEditor();
+    this._editingIdx = idx;
+
+    const current = String(p.status || '').trim();
+    cellEl.innerHTML = '';
+    const mount = document.createElement('div');
+    cellEl.appendChild(mount);
+
+    const ed = new InlineMenuSelectEditor(mount, {
+      options: current ? [{ value: current, label: current, color: STATUS_COLORS[current] || '' }] : [],
+      initialValue: current,
+    });
+    this._activeEditor = ed;
+
+    const restore = () => {
+      this._closeEditor();
+      cellEl.innerHTML = _statusCellHtml(p.status);
+    };
+
+    mount.addEventListener('sb:menu-select', async (e) => {
+      e.stopPropagation?.();
+      const value = String(e?.detail?.value ?? ed.getValue() ?? '').trim();
+      this._closeEditor();
+      if (!value || value === current) {
+        cellEl.innerHTML = _statusCellHtml(p.status);
+        return;
+      }
+      // Optimistic paint; the store update will re-render the whole table.
+      cellEl.innerHTML = _statusCellHtml(value);
+      try {
+        await this.onChangeStatus(p, value);
+      } catch (err) {
+        cellEl.innerHTML = _statusCellHtml(p.status);
+      }
+    }, { once: true });
+
+    mount.addEventListener('sb:menu-close', () => restore(), { once: true });
+
+    // Load the real, board-scoped status options and re-render the menu once.
+    BoardStatusService.getEffectiveOptions({ projectType: p.project_type, currentValue: current })
+      .then((opts) => {
+        if (this._activeEditor !== ed || !mount.isConnected) return;
+        const items = (Array.isArray(opts) ? opts : []).map((s) => ({
+          value: s, label: s, color: STATUS_COLORS[s] || '',
+        }));
+        if (items.length) {
+          ed.options = items;
+          ed.render();
+        }
+      })
+      .catch(() => {});
+  }
+
   destroy() {
+    this._closeEditor();
     if (this._onClick) this.container.removeEventListener('click', this._onClick);
     this._onClick = null;
     this.container.innerHTML = '';
   }
 }
-
-

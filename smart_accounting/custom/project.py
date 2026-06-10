@@ -66,6 +66,9 @@ class CustomProject(Project):
         1) linked Customer Entity (custom_customer_entity), else
         2) customer's primary Customer Entity.
         """
+        # Roll Over may explicitly carry/set Year End; honour that and skip auto-sync.
+        if getattr(getattr(self, "flags", None), "skip_year_end_autosync", False):
+            return
         try:
             cur = str(getattr(self, "custom_year_end", "") or "").strip()
         except Exception:

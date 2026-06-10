@@ -90,8 +90,12 @@ export class RollOverModal {
       const advanceRadio = o.advance
         ? `<label class="sb-ro__mode"><input type="radio" name="sbRoMode_${f}" class="sb-ro__modesel" data-field="${f}" value="advance" ${m === 'advance' ? 'checked' : ''}/><span>Next year (+1)</span></label>`
         : '';
+      // Date fields (e.g. Lodgement Due) can offer "+1 year" alongside Carry/Clear/Set.
+      const advanceYearRadio = o.advanceYear
+        ? `<label class="sb-ro__mode"><input type="radio" name="sbRoMode_${f}" class="sb-ro__modesel" data-field="${f}" value="advance_year" ${m === 'advance_year' ? 'checked' : ''}/><span>Next year (+1)</span></label>`
+        : '';
       return `
-        ${advanceRadio}
+        ${advanceRadio}${advanceYearRadio}
         <label class="sb-ro__mode"><input type="radio" name="sbRoMode_${f}" class="sb-ro__modesel" data-field="${f}" value="carry" ${m === 'carry' ? 'checked' : ''}/><span>Carry</span></label>
         <label class="sb-ro__mode"><input type="radio" name="sbRoMode_${f}" class="sb-ro__modesel" data-field="${f}" value="clear" ${m === 'clear' ? 'checked' : ''}/><span>Clear</span></label>
         <label class="sb-ro__mode${canSet ? '' : ' sb-ro__mode--disabled'}" title="${canSet ? '' : 'This field cannot be set to a new value here'}"><input type="radio" name="sbRoMode_${f}" class="sb-ro__modesel" data-field="${f}" value="set" ${(m === 'set' && canSet) ? 'checked' : ''} ${canSet ? '' : 'disabled'}/><span>Set</span></label>
@@ -110,7 +114,7 @@ export class RollOverModal {
       <div class="sb-ro">
         <div class="text-muted" style="font-size:13px; margin-bottom:12px;">
           Create ${this.count} new project${this.count === 1 ? '' : 's'} from the selected one${this.count === 1 ? '' : 's'}.
-          Status resets to <b>${escapeHtml(cfg.resetStatus || 'Not started')}</b>; the new name keeps the original plus an auto tag (board / fiscal year).
+          Status resets to <b>${escapeHtml(cfg.resetStatus || 'Not started')}</b>; the new name keeps the original plus an auto tag (board, fiscal year, or "(Roll Over)").
         </div>
 
         <div class="sb-ro__section">
@@ -142,6 +146,16 @@ export class RollOverModal {
           <div class="sb-ro__rows">
             ${lockedHtml}
             ${rowsHtml}
+          </div>
+        </div>
+
+        <div class="sb-ro__section">
+          <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+            <input type="checkbox" id="sbRoArchiveSrc" />
+            <span>Archive the original project${this.count === 1 ? '' : 's'} after roll over</span>
+          </label>
+          <div class="text-muted" style="font-size:12px; margin-top:4px;">
+            On = archive + roll over (the original is moved to Archived). Off = duplicate only.
           </div>
         </div>
 
@@ -232,6 +246,7 @@ export class RollOverModal {
     //   carry -> carryFields, set -> overrides, advance -> fiscal-year +1, clear -> skip.
     const carryFields = [];
     const overrides = {};
+    const advanceYearFields = [];
     let advanceFiscalYear = false;
     const options = Array.isArray(this.config?.carryOptions) ? this.config.carryOptions : [];
     for (const o of options) {
@@ -248,9 +263,14 @@ export class RollOverModal {
       } else if (mode === 'advance') {
         // Only the fiscal-year field offers this; backend computes +1 per project.
         advanceFiscalYear = true;
+      } else if (mode === 'advance_year') {
+        // Date fields (e.g. Lodgement Due): backend sets source date + 1 year.
+        advanceYearFields.push(f);
       }
       // 'clear' -> leave out of both (field starts blank/default).
     }
+
+    const archiveSource = !!root?.querySelector?.('#sbRoArchiveSrc')?.checked;
 
     // Name suffix is auto-derived by the backend (board tag, or new fiscal year).
     const nameSuffix = '';
@@ -263,7 +283,7 @@ export class RollOverModal {
     if (btnConfirm) { btnConfirm.disabled = true; btnConfirm.textContent = 'Rolling over…'; }
 
     try {
-      await this.onConfirm({ targetBoard, carryFields, overrides, nameSuffix, advanceFiscalYear });
+      await this.onConfirm({ targetBoard, carryFields, overrides, nameSuffix, advanceFiscalYear, advanceYearFields, archiveSource });
       this.close();
     } catch (e) {
       this._setError(e?.message || String(e) || 'Roll over failed');

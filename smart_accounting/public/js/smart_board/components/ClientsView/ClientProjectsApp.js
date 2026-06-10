@@ -22,6 +22,13 @@ export class ClientProjectsApp {
       onLoadMore: async () => {
         try { await this.store?.dispatch?.('projects/fetchMoreProjects'); } catch (e) {}
       },
+      // Quick inline status change (Home status page). Reuses the same store path
+      // as the board so automation side-effects are reflected immediately.
+      onChangeStatus: async (project, value) => {
+        const name = String(project?.name || '').trim();
+        if (!name) return;
+        await this.store?.dispatch?.('projects/updateProjectField', { name, field: 'status', value });
+      },
     });
 
     this._unsub = this.store?.subscribe?.(() => this.render());

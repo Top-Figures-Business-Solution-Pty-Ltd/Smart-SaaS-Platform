@@ -77,6 +77,8 @@ export class ProjectCommandService {
     nameSuffix = '',
     resetStatus = 'Not started',
     advanceFiscalYear = false,
+    advanceYearFields = [],
+    archiveSource = false,
   } = {}) {
     const names = Array.isArray(sourceNames) ? sourceNames : [];
     if (!names.length) throw new Error('No projects selected');
@@ -91,6 +93,8 @@ export class ProjectCommandService {
         name_suffix: nameSuffix || null,
         reset_status: resetStatus || 'Not started',
         advance_fiscal_year: advanceFiscalYear ? 1 : 0,
+        advance_year_fields: Array.isArray(advanceYearFields) ? advanceYearFields : [],
+        archive_source: archiveSource ? 1 : 0,
       },
     });
     return r?.message || { created: [], errors: [], count: 0 };
