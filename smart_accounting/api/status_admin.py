@@ -34,6 +34,8 @@ def _status_pool() -> list[str]:
 		"Ready to send to client",
 		"Sent to client for signature",
 		"Hold",
+		# Smart Grants only — CTR gate before payment (scoped in board_settings)
+		"Waiting for CTR",
 		"Waiting for payment",
 		# Smart Grants only — engagement decided not to proceed (scoped in board_settings)
 		"Not to Proceed",

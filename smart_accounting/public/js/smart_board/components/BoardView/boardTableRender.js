@@ -48,14 +48,17 @@ export function renderHeaderCells(columns, sortState = {}) {
   `).join('');
 }
 
-export function renderRows(projects, columns, onRowClick, rowsOut, { isSelected, isExpanded, expandedRowHTML } = {}) {
+export function renderRows(projects, columns, onRowClick, rowsOut, { isSelected, isExpanded, expandedRowHTML, startIndex = 0 } = {}) {
   if (!projects || projects.length === 0) {
     return '<tr><td colspan="100"><div class="no-data">No projects found</div></td></tr>';
   }
   return projects.map((project, index) => {
+    // Absolute index across the full list (not the virtualized window) so zebra
+    // striping parity stays stable while scrolling.
+    const absIndex = startIndex + index;
     const row = new BoardRow(project, {
       columns,
-      index,
+      index: absIndex,
       onClick: () => onRowClick(project),
       isSelected: typeof isSelected === 'function' ? isSelected : null,
     });

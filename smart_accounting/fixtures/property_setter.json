@@ -157,7 +157,7 @@
   "property": "options",
   "property_type": "Text",
   "row_name": null,
-  "value": "Not started\nWorking on it\nWaiting for client\nR&D\nWaiting for tech meeting\nWaiting for tech evidence\nPreparing R&D report\nWaiting for report review and signature\nPreparing application form\nWaiting for AP review\nWaiting for financial accounts\nPreparing R&D exp calculation\nWaiting for responses to fin queries\nFinal pack prep\nReady for manager review\nReview points to be actioned\nReady for partner review\nReady to send to client\nSent to client for signature\nHold\nWaiting for payment\nNot to Proceed\nCompleted"
+  "value": "Not started\nWorking on it\nWaiting for client\nR&D\nWaiting for tech meeting\nWaiting for tech evidence\nPreparing R&D report\nWaiting for report review and signature\nPreparing application form\nWaiting for AP review\nWaiting for financial accounts\nPreparing R&D exp calculation\nWaiting for responses to fin queries\nFinal pack prep\nReady for manager review\nReview points to be actioned\nReady for partner review\nReady to send to client\nSent to client for signature\nHold\nWaiting for CTR\nWaiting for payment\nNot to Proceed\nCompleted"
  },
  {
   "default_value": null,

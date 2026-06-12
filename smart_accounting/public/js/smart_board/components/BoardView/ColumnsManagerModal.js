@@ -19,6 +19,8 @@ export class ColumnsManagerModal {
         field: c.field,
         label: c.label || c.field,
         enabled: c.enabled !== false,
+        // Locked columns are pinned first, always shown, and can't be reordered/hidden.
+        locked: !!c.locked,
       }))
     }));
     this.activeKey = activeKey || this.sections?.[0]?.key || 'project';
@@ -87,6 +89,18 @@ export class ColumnsManagerModal {
   }
 
   _rowHTML(c, idx) {
+    if (c.locked) {
+      return `
+        <div class="sb-colmgr__row is-locked" draggable="false" data-index="${idx}">
+          <div class="sb-colmgr__drag" title="Fixed first column">🔒</div>
+          <label class="sb-colmgr__label">
+            <input type="checkbox" class="sb-colmgr__check" data-index="${idx}" checked disabled/>
+            <span class="sb-colmgr__text">${escapeHtml(c.label)}</span>
+            <span class="sb-colmgr__field">${escapeHtml(c.field)} · 固定首列</span>
+          </label>
+        </div>
+      `;
+    }
     return `
       <div class="sb-colmgr__row" draggable="true" data-index="${idx}">
         <div class="sb-colmgr__drag" title="Drag to reorder">⋮⋮</div>
@@ -113,6 +127,7 @@ export class ColumnsManagerModal {
       if (!cb) return;
       const idx = Number(cb.dataset.index);
       if (Number.isFinite(idx) && active.columns[idx]) {
+        if (active.columns[idx].locked) { cb.checked = true; return; }
         active.columns[idx].enabled = !!cb.checked;
       }
     });
@@ -120,7 +135,9 @@ export class ColumnsManagerModal {
     listEl.addEventListener('dragstart', (e) => {
       const row = e.target?.closest?.('.sb-colmgr__row');
       if (!row) return;
-      this._dragIndex = Number(row.dataset.index);
+      const startIdx = Number(row.dataset.index);
+      if (active.columns[startIdx]?.locked) { e.preventDefault(); return; }
+      this._dragIndex = startIdx;
       this._dropIndex = this._dragIndex;
       row.classList.add('is-dragging');
       try {
@@ -145,6 +162,8 @@ export class ColumnsManagerModal {
       if (!overRow) return;
       const overIndex = Number(overRow.dataset.index);
       if (this._dragIndex == null || overIndex === this._dragIndex) return;
+      // Never allow dropping before/onto a locked (pinned-first) column.
+      if (active.columns[overIndex]?.locked) return;
       this._dropIndex = overIndex;
       listEl.querySelectorAll('.sb-colmgr__row').forEach((r) => r.classList.remove('is-drop-target'));
       overRow.classList.add('is-drop-target');
@@ -153,9 +172,14 @@ export class ColumnsManagerModal {
     listEl.addEventListener('drop', (e) => {
       e.preventDefault();
       const from = this._dragIndex;
-      const to = this._dropIndex;
+      let to = this._dropIndex;
       if (from == null || to == null || from === to) return;
+      // Keep any leading locked (pinned) columns at the very front.
+      const lockedLead = active.columns.findIndex((c) => !c.locked);
+      const minIdx = lockedLead < 0 ? 0 : lockedLead;
+      if (to < minIdx) to = minIdx;
       const moved = active.columns.splice(from, 1)[0];
+      if (moved?.locked) { this._rerenderList(); return; }
       active.columns.splice(to, 0, moved);
       this._dragIndex = to;
       this._rerenderList();
@@ -192,7 +216,7 @@ export class ColumnsManagerModal {
     if (this._saving) return;
     const out = {};
     for (const s of (this.sections || [])) {
-      const enabled = (s.columns || []).filter((c) => c.enabled);
+      const enabled = (s.columns || []).filter((c) => c.locked || c.enabled);
       if (enabled.length === 0) {
         notify(`至少需要保留 1 列：${s.label}`, 'red');
         return;

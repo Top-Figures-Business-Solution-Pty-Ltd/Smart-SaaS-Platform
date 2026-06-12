@@ -3,9 +3,7 @@
  * - Data access for creating Projects from the product shell (/smart).
  * - Kept separate from ProjectService to avoid mixing list/query logic with creation workflow.
  */
-import { notify } from './uiAdapter.js';
 import { getErrorMessage } from '../utils/errorMessage.js';
-import { isDesk } from '../utils/env.js';
 
 export class ProjectCreateService {
   static _defaultCompany = undefined;
@@ -153,20 +151,30 @@ export class ProjectCreateService {
       throw new Error(`Missing required fields: ${missing.join(', ')}`);
     }
 
+    // Use a backend method that returns a STRUCTURED result instead of throwing.
+    // This way expected errors (duplicate name, validation) never trigger Frappe's
+    // native "Message" error dialog — the frontend shows a friendly prompt instead.
+    const { doctype, ...projectData } = doc;
     try {
       const r = await frappe.call({
-        method: 'frappe.client.insert',
+        method: 'smart_accounting.api.project_board.create_project',
         type: 'POST',
-        // Prevent server-side msgprint popups from interrupting /smart UX.
-        silent: true,
-        args: { doc }
+        args: { payload: projectData },
       });
-      return r?.message || null;
+      const res = r?.message || {};
+      if (res && res.ok) return res.project || null;
+
+      const err = new Error(res?.message || 'Create project failed');
+      err.friendly = true;
+      err.code = res?.error_code || 'unknown';
+      throw err;
     } catch (e) {
+      // Network / unexpected failure (not a structured business error).
+      if (e?.friendly) throw e;
       const msg = getErrorMessage(e) || 'Create project failed';
-      // Website shell: do not use alert() popups; surface the message in the modal only.
-      if (isDesk()) notify(`Create project failed: ${msg}`, 'red');
-      throw new Error(msg);
+      const err = new Error(msg);
+      err.friendly = true;
+      throw err;
     }
   }
 }

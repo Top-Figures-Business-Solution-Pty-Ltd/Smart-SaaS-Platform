@@ -3,6 +3,31 @@
  * - Convert unknown thrown values (Error/object/string) into a user-friendly message.
  * - Handles common Frappe response shapes (e._server_messages).
  */
+// Translate raw Frappe/DB error fragments into a friendly, user-facing sentence.
+// Returns the friendly message, or the cleaned input unchanged if nothing matches.
+function _friendly(text) {
+  const t = String(text || '').trim();
+  if (!t) return t;
+
+  // Duplicate unique key (e.g. project_name / customer name)
+  if (/duplicateentryerror/i.test(t) || /duplicate entry/i.test(t) || /\b1062\b/.test(t)) {
+    return 'This name is already in use. Please choose a different one.';
+  }
+  // Generic DB integrity issues
+  if (/integrityerror/i.test(t)) {
+    return 'That action conflicts with existing data. Please review your input and try again.';
+  }
+  // Permission
+  if (/permissionerror/i.test(t) || /not permitted/i.test(t) || /insufficient permission/i.test(t)) {
+    return 'You don’t have permission to perform this action.';
+  }
+  // Timeouts / connectivity
+  if (/timed out|timeout/i.test(t)) {
+    return 'The request timed out. Please check your connection and try again.';
+  }
+  return t;
+}
+
 export function getErrorMessage(err) {
   try {
     if (!err) return '';
@@ -42,8 +67,8 @@ export function getErrorMessage(err) {
       return firstLine || '';
     };
 
-    if (typeof err === 'string') return _clean(err);
-    if (err instanceof Error) return _clean(err.message || '');
+    if (typeof err === 'string') return _friendly(_clean(err));
+    if (err instanceof Error) return _friendly(_clean(err.message || ''));
 
     // Frappe often returns server messages as a JSON string array in _server_messages.
     try {
@@ -53,7 +78,7 @@ export function getErrorMessage(err) {
         const first = Array.isArray(arr) ? arr[0] : null;
         const decoded = first ? JSON.parse(first) : null;
         const msg = decoded?.message;
-        if (msg) return _clean(msg);
+        if (msg) return _friendly(_clean(msg));
       }
     } catch (e) {}
 
@@ -66,7 +91,7 @@ export function getErrorMessage(err) {
       err?.responseText ||
       err?.statusText ||
       '';
-    if (typeof m === 'string' && m.trim()) return _clean(m);
+    if (typeof m === 'string' && m.trim()) return _friendly(_clean(m));
 
     // Avoid "[object Object]" noise
     return '';

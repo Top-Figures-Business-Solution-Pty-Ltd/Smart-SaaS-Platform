@@ -15,7 +15,7 @@ from __future__ import annotations
 from typing import Any, Iterable
 
 import frappe
-from frappe.utils import today
+from frappe.utils import strip_html, today
 
 
 def _ensure_write_permission(doc) -> None:
@@ -1423,6 +1423,127 @@ def get_tasks_for_projects(projects: Any, fields: Any = None, limit_per_project:
 		if p in out:
 			result[p] = out[p]
 	return {"tasks": result}
+
+
+_PROJECT_CREATE_FIELDS = (
+	"project_name",
+	"customer",
+	"company",
+	"custom_fiscal_year",
+	"project_type",
+	"custom_grants_fy_label",
+	"custom_project_frequency",
+	"custom_year_end",
+	"custom_target_month",
+	"status",
+	"priority",
+)
+
+
+def _friendly_error_text(exc: Exception) -> str:
+	"""Best-effort: pull the human sentence out of a Frappe/DB exception."""
+	msg = str(exc or "").strip()
+	# frappe.throw messages may carry HTML; strip tags for a clean prompt.
+	msg = strip_html(msg).strip() if msg else ""
+	# First line only — avoid dumping tracebacks/SQL to the user.
+	first = msg.split("\n")[0].strip() if msg else ""
+	return first
+
+
+@frappe.whitelist()
+def create_project(payload: Any = None) -> dict:
+	"""
+	Create a Project from the /smart shell and ALWAYS return a structured result.
+
+	Unlike ``frappe.client.insert``, expected user errors (duplicate name, missing
+	field, validation, permission) are caught and returned as ``{"ok": False, ...}``
+	WITHOUT raising — so the frontend can show a friendly prompt and Frappe never
+	pops its raw "Message" error dialog.
+	"""
+	_ensure_logged_in()
+
+	data = payload
+	if isinstance(data, str):
+		try:
+			data = frappe.parse_json(data)
+		except Exception:
+			data = None
+	if not isinstance(data, dict):
+		return {"ok": False, "error_code": "bad_request", "message": "Invalid project data."}
+
+	name = str(data.get("project_name") or "").strip()
+	if not name:
+		return {"ok": False, "error_code": "required", "message": "Project Name is required."}
+
+	# Friendly duplicate pre-check (project_name is unique) — avoids the raw DB error.
+	if frappe.db.exists("Project", {"project_name": name}):
+		return {
+			"ok": False,
+			"error_code": "duplicate_name",
+			"message": f'A project named "{name}" already exists. Please choose a different name.',
+		}
+
+	try:
+		doc = frappe.new_doc("Project")
+		meta = doc.meta
+		for f in _PROJECT_CREATE_FIELDS:
+			if f not in data:
+				continue
+			val = data.get(f)
+			if val in (None, ""):
+				continue
+			if f == "project_name" or meta.has_field(f):
+				doc.set(f, val)
+		doc.insert()  # permission-aware (no ignore_permissions)
+	except frappe.DuplicateEntryError:
+		frappe.db.rollback()
+		return {
+			"ok": False,
+			"error_code": "duplicate_name",
+			"message": f'A project named "{name}" already exists. Please choose a different name.',
+		}
+	except frappe.PermissionError:
+		frappe.db.rollback()
+		return {
+			"ok": False,
+			"error_code": "permission",
+			"message": "You don't have permission to create this project.",
+		}
+	except frappe.ValidationError as e:
+		frappe.db.rollback()
+		return {
+			"ok": False,
+			"error_code": "validation",
+			"message": _friendly_error_text(e) or "Some details are invalid. Please review and try again.",
+		}
+	except Exception as e:  # noqa: BLE001 — last resort, keep the UI clean
+		frappe.db.rollback()
+		frappe.log_error(frappe.get_traceback(), "smart_board create_project failed")
+		# Duplicate index errors can surface as a generic DB error on some stacks.
+		txt = str(e or "").lower()
+		if "duplicate" in txt or "1062" in txt:
+			return {
+				"ok": False,
+				"error_code": "duplicate_name",
+				"message": f'A project named "{name}" already exists. Please choose a different name.',
+			}
+		return {
+			"ok": False,
+			"error_code": "unknown",
+			"message": "Could not create the project. Please try again.",
+		}
+
+	# Return the full doc so the board can optimistically render the new row.
+	try:
+		project = doc.as_dict()
+	except Exception:
+		project = {
+			"name": doc.name,
+			"project_name": doc.project_name,
+			"project_type": doc.get("project_type"),
+			"customer": doc.get("customer"),
+		}
+	return {"ok": True, "project": project}
 
 
 @frappe.whitelist()

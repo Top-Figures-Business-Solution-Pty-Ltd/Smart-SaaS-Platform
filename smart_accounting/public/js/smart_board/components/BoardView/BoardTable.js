@@ -32,7 +32,7 @@ import { RestoreTypePickerModal } from './RestoreTypePickerModal.js';
 import { RollOverModal } from './RollOverModal.js';
 import { ProjectTypeService } from '../../services/projectTypeService.js';
 import { ProjectCommandService } from '../../services/projectCommandService.js';
-import { getProjectColumnCatalogForModule, filterProjectColumnsForModule, getAllowedProjectTypes, getExcludedProjectTypes, getRollOverConfig } from '../../utils/moduleConfig.js';
+import { getProjectColumnCatalogForModule, filterProjectColumnsForModule, getAllowedProjectTypes, getExcludedProjectTypes, getRollOverConfig, getPinnedFirstField } from '../../utils/moduleConfig.js';
 
 export class BoardTable {
     constructor(container, options = {}) {
@@ -401,13 +401,10 @@ export class BoardTable {
             const filteredByModule = Array.isArray(cfgRaw) && cfgRaw.length !== cfg.length;
             const staleProjectLabels = Array.isArray(cfg)
                 && cfg.some((c, idx) => String(c?.label || '').trim() !== String(normalizedProjectCfg[idx]?.label || '').trim());
-            const missingRequiredModuleCols = String(this.moduleKey || '') === 'grants'
-                && [
-                    'custom_grants_state',
-                    'custom_grants_industry_category',
-                    'custom_grants_address_snapshot',
-                ].some((field) => !(cfg || []).some((c) => String(c?.field || '').trim() === field));
-            if (view?.name && (isLegacyArray || tasksEmpty || droppedDeprecated || filteredByModule || staleProjectLabels || missingRequiredModuleCols)) {
+            // NOTE: do NOT re-inject "required" grants columns here. Persisting them
+            // back would override a user who intentionally hid State / Industry /
+            // Address. Default visibility comes from the default column config only.
+            if (view?.name && (isLegacyArray || tasksEmpty || droppedDeprecated || filteredByModule || staleProjectLabels)) {
                 await ViewService.updateView(view.name, { columns: { project: normalizedProjectCfg || [], tasks: nextTaskCols } });
                 this._setSavedViewColumnsInMemory({ project: normalizedProjectCfg || [], tasks: nextTaskCols });
             }
@@ -1921,6 +1918,7 @@ export class BoardTable {
                 isSelected: (p) => this._selected?.has?.(p?.name),
                 isExpanded: (p) => this._expanded?.has?.(p?.name),
                 expandedRowHTML: (p, cols) => this._renderExpandedTasksRow(p, cols),
+                startIndex: start,
             }
         );
         tbody.innerHTML = spacerRow(topPad) + rowsHtml + spacerRow(bottomPad);
@@ -2011,6 +2009,23 @@ export class BoardTable {
                 enabled: currentSet.has(field),
             };
         });
+
+        // Pin the module's first column (Smart Grants: company/client name) to the
+        // top of the manager, always enabled and locked so it can't be hidden/moved.
+        const pinnedFirst = getPinnedFirstField(this.moduleKey);
+        if (pinnedFirst) {
+            const pi = list.findIndex((c) => c.field === pinnedFirst);
+            let pinnedCol;
+            if (pi >= 0) {
+                pinnedCol = list.splice(pi, 1)[0];
+            } else {
+                const d = byField.get(pinnedFirst);
+                pinnedCol = { field: pinnedFirst, label: d?.label || 'Client Name' };
+            }
+            pinnedCol.enabled = true;
+            pinnedCol.locked = true;
+            list.unshift(pinnedCol);
+        }
 
         const taskData = this._buildTaskColumnManagerData();
         this._openUnifiedColumnsManager({

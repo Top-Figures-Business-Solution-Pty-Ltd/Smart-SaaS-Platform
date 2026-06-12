@@ -109,6 +109,14 @@ export function isProjectColumnAllowed(field, moduleKey = null) {
   return ACCOUNTING_PROJECT_FIELDS.has(f);
 }
 
+// The first column that must stay pinned to the very left and cannot be hidden or
+// reordered. Smart Grants always leads with the Client Name (`customer`); Smart
+// Accounting keeps its per-project-type first column, so it isn't force-pinned here.
+export function getPinnedFirstField(moduleKey = null) {
+  const key = getModuleKey(moduleKey);
+  return key === 'grants' ? 'customer' : null;
+}
+
 export function getProjectColumnCatalogForModule(catalog = [], moduleKey = null, { includeHidden = true } = {}) {
   const key = getModuleKey(moduleKey);
   const hiddenInGrantsManager = new Set([
@@ -124,39 +132,25 @@ export function getProjectColumnCatalogForModule(catalog = [], moduleKey = null,
 
 export function filterProjectColumnsForModule(columnsConfig = [], moduleKey = null, { viewType = '' } = {}) {
   const key = getModuleKey(moduleKey);
+  // IMPORTANT: only drop columns that aren't allowed for this module. We must NOT
+  // force-add any "default" columns here — doing so would make hidden columns
+  // (e.g. State / Industry / Address in Smart Grants) reappear after the user
+  // unchecks them. Default visibility belongs to the default column config
+  // (constants.js makeGrantsDefaultColumns), not to this render-time filter.
   const list = (Array.isArray(columnsConfig) ? columnsConfig : [])
     .filter((c) => isProjectColumnAllowed(c?.field, key))
     .map((c) => ({ ...c }));
 
-  if (key === 'grants') {
-    const requiredAfterAbn = [
-      { field: 'custom_grants_state', label: 'State', width: 120 },
-      { field: 'custom_grants_industry_category', label: 'Industry', width: 180 },
-    ];
-    const hasAbn = list.some((c) => String(c?.field || '').trim() === 'custom_grants_abn_snapshot');
-    let insertIdx = list.findIndex((c) => String(c?.field || '').trim() === 'custom_grants_abn_snapshot');
-    if (insertIdx < 0) insertIdx = list.length - 1;
-
-    requiredAfterAbn.forEach((col, offset) => {
-      const field = String(col.field || '').trim();
-      const existingIdx = list.findIndex((c) => String(c?.field || '').trim() === field);
-      const targetIdx = hasAbn ? (insertIdx + 1 + offset) : Math.min(list.length, offset);
-      if (existingIdx === -1) {
-        list.splice(targetIdx, 0, { ...col });
-        return;
-      }
-      const [existing] = list.splice(existingIdx, 1);
-      const normalized = { ...col, ...existing, label: existing?.label || col.label, width: existing?.width || col.width };
-      const nextIdx = Math.min(targetIdx, list.length);
-      list.splice(nextIdx, 0, normalized);
-    });
-
-    const hasAddress = list.some((c) => String(c?.field || '').trim() === 'custom_grants_address_snapshot');
-    if (!hasAddress) {
-      const addr = { field: 'custom_grants_address_snapshot', label: 'Address', width: 220 };
-      const contactIdx = list.findIndex((c) => String(c?.field || '').trim() === 'custom_grants_contact_name');
-      if (contactIdx >= 0) list.splice(contactIdx, 0, addr);
-      else list.push(addr);
+  // Pin the module's first column to the very left so hide/unhide/reorder of the
+  // other columns can never push it aside (Smart Grants: company/client name).
+  const pinned = getPinnedFirstField(key);
+  if (pinned) {
+    const idx = list.findIndex((c) => String(c?.field || '').trim() === pinned);
+    if (idx > 0) {
+      const [col] = list.splice(idx, 1);
+      list.unshift(col);
+    } else if (idx < 0) {
+      list.unshift({ field: pinned, label: 'Client Name', width: 200 });
     }
   }
 

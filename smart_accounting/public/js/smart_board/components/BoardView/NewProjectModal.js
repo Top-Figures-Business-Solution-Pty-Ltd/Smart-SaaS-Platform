@@ -6,7 +6,7 @@
 import { Modal } from '../Common/Modal.js';
 import { LinkInput } from '../Common/LinkInput.js';
 import { DoctypeMetaService } from '../../services/doctypeMetaService.js';
-import { confirmDialog } from '../../services/uiAdapter.js';
+import { confirmDialog, alertDialog } from '../../services/uiAdapter.js';
 import { getErrorMessage } from '../../utils/errorMessage.js';
 import { escapeHtml } from '../../utils/dom.js';
 
@@ -433,7 +433,14 @@ export class NewProjectModal {
       this.close();
     } catch (e) {
       const msg = getErrorMessage(e) || 'Create project failed';
-      this._setError(msg);
+      // Show a friendly prompt overlaid on this modal instead of leaking a raw
+      // error. Keep the inline banner cleared so we don't double up the message.
+      this._setError('');
+      const isDuplicate = e?.code === 'duplicate_name' || /already exists/i.test(msg);
+      await alertDialog(msg, {
+        title: isDuplicate ? 'Name already in use' : 'Couldn’t create project',
+        indicator: 'orange',
+      });
     } finally {
       if (btn) btn.disabled = false;
     }

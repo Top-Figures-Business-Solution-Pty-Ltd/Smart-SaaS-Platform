@@ -27,9 +27,12 @@ export class BoardRow {
         const highlightClass = highlight ? ' board-table-row--highlight' : '';
         const highlightStyle = highlight ? ` style="--sb-row-hl:${highlight};"` : '';
 
+        // Zebra striping parity from the stable absolute row index.
+        const parityClass = (Number(this.index) % 2 === 1) ? ' sb-row--even' : ' sb-row--odd';
+
         return `
             <tr 
-                class="board-table-row ${selected ? 'selected' : ''}${highlightClass}" 
+                class="board-table-row ${selected ? 'selected' : ''}${highlightClass}${parityClass}" 
                 data-project-name="${this.project.name}"
                 data-index="${this.index}"
                 ${highlightStyle}

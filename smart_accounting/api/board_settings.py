@@ -112,6 +112,7 @@ GRANTS_STATUS_ORDER: list[str] = [
 	"Preparing R&D exp calculation",
 	"Waiting for responses to fin queries",
 	"Final pack prep",
+	"Waiting for CTR",
 	"Waiting for payment",
 	"Completed",
 	"Not to Proceed",
@@ -129,6 +130,8 @@ _STATUS_PROJECT_TYPE_SCOPE: dict[str, set[str]] = {
 	"Preparing R&D exp calculation": SMART_GRANTS_BOARDS,
 	"Waiting for responses to fin queries": SMART_GRANTS_BOARDS,
 	"Final pack prep": SMART_GRANTS_BOARDS,
+	# CTR (Company Tax Return) gate before payment — Smart Grants boards only (2026-06)
+	"Waiting for CTR": SMART_GRANTS_BOARDS,
 	# Engagement decided not to proceed — Smart Grants boards only (2026-05)
 	"Not to Proceed": SMART_GRANTS_BOARDS,
 }

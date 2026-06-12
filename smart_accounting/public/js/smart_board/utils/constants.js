@@ -99,6 +99,7 @@ export const STATUS_COLORS = {
     'Preparing R&D exp calculation': '#0891b2', // dark cyan
     'Waiting for responses to fin queries': '#ec4899', // pink
     'Final pack prep': '#84cc16', // lime (near completion)
+    'Waiting for CTR': '#a16207', // amber-brown — CTR gate before payment
 
     'Ready for manager review': '#3b82f6', // blue
     'Review points to be actioned': '#ef4444', // red
@@ -262,7 +263,8 @@ export function isSortableProjectField(field) {
 // Returns a fresh array each call so different boards never share a mutable reference.
 function makeGrantsDefaultColumns() {
     return [
-        { field: 'project_name', label: 'Company Name', width: 240, frozen: true },
+        { field: 'customer', label: 'Client Name', width: 220, frozen: true },
+        { field: 'project_name', label: 'Company Name', width: 240 },
         { field: 'project_type', label: 'Board', width: 140 },
         { field: 'custom_grants_fy_label', label: 'FY/CY', width: 120 },
         { field: 'custom_grants_abn_snapshot', label: 'ABN', width: 140 },

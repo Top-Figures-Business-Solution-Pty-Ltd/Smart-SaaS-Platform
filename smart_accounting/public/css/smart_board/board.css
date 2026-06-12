@@ -740,6 +740,14 @@
     transition: background 0.15s ease;
 }
 
+/* Zebra striping: even rows get a faint shade so users don't edit the wrong row.
+   Applies to frozen (sticky) cells too. Scoped with :not() so selection,
+   automation highlight and hover always take precedence. */
+.board-table > tbody > tr.sb-row--even:not(.selected):not(.board-table-row--highlight):not(:hover) > td,
+.board-table > tbody > tr.sb-row--even:not(.selected):not(.board-table-row--highlight):not(:hover) > td.frozen {
+    background-color: #f4f6f9;
+}
+
 .board-table > tbody > tr:hover {
     background: rgba(15, 23, 42, 0.035);
 }
