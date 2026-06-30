@@ -257,7 +257,10 @@ export class AutomationModal {
           <ul class="text-muted" style="margin:8px 0 0 18px; padding:0;">
             <li>Before 26 May 2026 — rolls to 26 May 2026 (FY 2025-26 Q3).</li>
             <li>From 26 May 2026 up to 25 August 2026 — rolls to 25 August 2026 (FY 2025-26 Q4).</li>
-            <li>On or after 25 August 2026 — rollover stops and a warning is shown to the user.</li>
+            <li>From 25 August 2026 up to 25 November 2026 — rolls to 25 November 2026 (FY 2026-27 Q1).</li>
+            <li>From 25 November 2026 up to 28 February 2027 — rolls to 28 February 2027 (FY 2026-27 Q2).</li>
+            <li>From 28 February 2027 up to 25 May 2027 — rolls to 25 May 2027 (FY 2026-27 Q3).</li>
+            <li>On or after 25 May 2027 — rollover stops and a warning is shown to the user.</li>
           </ul>
           <p class="text-muted" style="margin-top:12px;">
             Future versions will let administrators maintain BAS / IAS quarterly due dates per fiscal year from this section, without requiring a code release.

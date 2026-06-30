@@ -319,13 +319,15 @@ components/pages  →  controllers  →  services  →  backend(api/*)
 
 - 当前 `Roll Lodgement Due forward by frequency` action 保持原有 UI 和命名不变
 - 运行时增加一个**仅对 `project_type in {BAS, IAS}` 且 `frequency = Quarterly` 生效**的特殊分支
-- 第一阶段规则只内置两个季度锚点：
+- 当前规则内置以下季度锚点：
   - Q3: `26 May 2026`
   - Q4: `25 August 2026`
+  - FY 2026-27 Q1: `25 November 2026`
+  - FY 2026-27 Q2: `28 February 2027`
+  - FY 2026-27 Q3: `25 May 2027`
 - 当前行为：
-  - 当前 due date `< Q3` -> rollover 到 `Q3`
-  - `Q3 <= 当前 due date < Q4` -> rollover 到 `Q4`
-  - `>= Q4` -> 不再 rollover，并向当前用户显示英文提示
+  - 当前 due date `< 下一个配置的 quarterly due date` -> rollover 到该 due date
+  - `>= 25 May 2027` -> 不再 rollover，并向当前用户显示英文提示
 - 这是一个**阶段性业务规则**，目的是先快速覆盖 quarterly BAS / IAS 的特殊日期
 
 ## 9.3 Special Rules 区域与未来升级路径

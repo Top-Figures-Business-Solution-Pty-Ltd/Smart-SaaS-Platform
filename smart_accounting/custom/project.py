@@ -1388,8 +1388,13 @@ def _roll_date_by_frequency(current_date, frequency: str):
     return None
 
 
-_QUARTERLY_BAS_IAS_Q3_DUE = getdate("2026-05-26")
-_QUARTERLY_BAS_IAS_Q4_DUE = getdate("2026-08-25")
+_QUARTERLY_BAS_IAS_DUE_DATES = (
+    ("FY 2025-26 Q3", getdate("2026-05-26")),
+    ("FY 2025-26 Q4", getdate("2026-08-25")),
+    ("FY 2026-27 Q1", getdate("2026-11-25")),
+    ("FY 2026-27 Q2", getdate("2027-02-28")),
+    ("FY 2026-27 Q3", getdate("2027-05-25")),
+)
 
 
 def _is_quarterly_bas_ias_project(project_type: str, frequency: str) -> bool:
@@ -1400,29 +1405,29 @@ def _is_quarterly_bas_ias_project(project_type: str, frequency: str) -> bool:
 
 def _resolve_special_quarterly_bas_ias_due_date(*, current_date, project_type: str, frequency: str):
     """
-    Phase-1 special rule for quarterly BAS/IAS only.
+    Special rule for quarterly BAS/IAS only.
 
     Behavior:
-    - before Q3 due date -> roll to Q3 due date
-    - Q3 due date <= current < Q4 due date -> roll to Q4 due date
-    - current >= Q4 due date -> do not roll; surface a user-facing message
+    - before the next configured quarterly due date -> roll to that due date
+    - current >= final configured due date -> do not roll; surface a user-facing message
 
     Returns:
     - None when the project should use generic frequency rollover
     - (new_date, limit_message) for quarterly BAS/IAS
-      - limit_message is non-empty when rollover must stop at FY 2025-26 Q4
+      - limit_message is non-empty when rollover must stop at the final configured due date
     """
     if not _is_quarterly_bas_ias_project(project_type, frequency):
         return None
 
     d = getdate(current_date)
-    if d < _QUARTERLY_BAS_IAS_Q3_DUE:
-        return _QUARTERLY_BAS_IAS_Q3_DUE, ""
-    if d < _QUARTERLY_BAS_IAS_Q4_DUE:
-        return _QUARTERLY_BAS_IAS_Q4_DUE, ""
+    for _label, due_date in _QUARTERLY_BAS_IAS_DUE_DATES:
+        if d < due_date:
+            return due_date, ""
+
+    final_label, final_due_date = _QUARTERLY_BAS_IAS_DUE_DATES[-1]
     return None, (
-        "The current quarterly rollover rule cannot go beyond FY 2025-26 Quarter 4 "
-        f"({_QUARTERLY_BAS_IAS_Q4_DUE.strftime('%d %B %Y')})."
+        f"The current quarterly rollover rule cannot go beyond {final_label} "
+        f"({final_due_date.strftime('%d %B %Y')})."
     )
 
 

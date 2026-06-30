@@ -1014,7 +1014,10 @@ export class BoardTable {
                 'Quarterly BAS/IAS rollover rule:',
                 '- before 26 May 2026 -> rolls to 26 May 2026',
                 '- from 26 May 2026 to before 25 August 2026 -> rolls to 25 August 2026',
-                '- on or after 25 August 2026 -> rollover stops and a warning is shown',
+                '- from 25 August 2026 to before 25 November 2026 -> rolls to 25 November 2026',
+                '- from 25 November 2026 to before 28 February 2027 -> rolls to 28 February 2027',
+                '- from 28 February 2027 to before 25 May 2027 -> rolls to 25 May 2027',
+                '- on or after 25 May 2027 -> rollover stops and a warning is shown',
                 '',
                 'Future yearly quarterly rules will be managed in Automation > Special Rules > Quarterly Due Date Rules (in development).',
             ].join('\n');
