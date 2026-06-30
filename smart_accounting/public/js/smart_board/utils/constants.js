@@ -294,7 +294,7 @@ export const DEFAULT_COLUMNS = {
     'ITR': [
         { field: 'customer', label: 'Client Name', width: 200, frozen: true },
         { field: 'custom_entity_type', label: 'Entity', width: 150 },
-        { field: 'company', label: 'TF/TG', width: 80 },
+        { field: 'company', label: 'Company', width: 80 },
         { field: 'custom_softwares', label: 'Software', width: 120 },
         { field: 'status', label: 'Status', width: 150 },
         { field: 'custom_lodgement_due_date', label: 'Due Date', width: 120 },
@@ -303,7 +303,7 @@ export const DEFAULT_COLUMNS = {
     'BAS': [
         { field: 'customer', label: 'Client Name', width: 200, frozen: true },
         { field: 'custom_entity_type', label: 'Entity', width: 150 },
-        { field: 'company', label: 'TF/TG', width: 80 },
+        { field: 'company', label: 'Company', width: 80 },
         { field: 'custom_softwares', label: 'Software', width: 120 },
         { field: 'status', label: 'Status', width: 150 },
         { field: 'custom_project_frequency', label: 'Frequency', width: 100 },
@@ -313,7 +313,7 @@ export const DEFAULT_COLUMNS = {
     ],
     'Payroll': [
         { field: 'customer', label: 'Client Name', width: 200, frozen: true },
-        { field: 'company', label: 'TF/TG', width: 80 },
+        { field: 'company', label: 'Company', width: 80 },
         { field: 'custom_softwares', label: 'Software', width: 120 },
         { field: 'status', label: 'Status', width: 150 },
         { field: 'custom_project_frequency', label: 'Frequency', width: 100 },
@@ -322,7 +322,7 @@ export const DEFAULT_COLUMNS = {
     ],
     'Bookkeeping': [
         { field: 'customer', label: 'Client Name', width: 200, frozen: true },
-        { field: 'company', label: 'TF/TG', width: 80 },
+        { field: 'company', label: 'Company', width: 80 },
         { field: 'custom_softwares', label: 'Software', width: 120 },
         { field: 'status', label: 'Status', width: 150 },
         { field: 'custom_project_frequency', label: 'Frequency', width: 100 },

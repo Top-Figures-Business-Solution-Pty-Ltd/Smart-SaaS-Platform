@@ -254,13 +254,18 @@ export class BoardCell {
     }
     
     formatCompany(company) {
-        // 显示简短标识（TF/TG）
-        if (company.includes('TF') || company.includes('Top Figures')) {
-            return '<span class="company-badge company-tf">TF</span>';
-        } else if (company.includes('TG') || company.includes('Top Grants')) {
-            return '<span class="company-badge company-tg">TG</span>';
+        const text = String(company || '').trim();
+        const companyBadges = [
+            { abbr: 'TF', className: 'company-tf', aliases: ['TF', 'Top Figures'] },
+            { abbr: 'TG', className: 'company-tg', aliases: ['TG', 'Top Grants'] },
+            { abbr: 'VT', className: 'company-vt', aliases: ['VT', 'VERITAX PARTNERS', 'Veritax Partners'] },
+        ];
+
+        const match = companyBadges.find(({ aliases }) => aliases.some((alias) => text.includes(alias)));
+        if (match) {
+            return `<span class="company-badge ${match.className}" title="${this.escapeHtml(text)}">${match.abbr}</span>`;
         }
-        return this.escapeHtml(company);
+        return this.escapeHtml(text);
     }
     
     formatEntity(entity) {
