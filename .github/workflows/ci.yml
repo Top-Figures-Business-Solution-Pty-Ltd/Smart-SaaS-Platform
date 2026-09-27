@@ -2,12 +2,7 @@
 name: CI
 
 on:
-  push:
-    branches:
-      - develop
-      - dev
-      - main
-  pull_request:
+  workflow_dispatch:
 
 concurrency:
   group: develop-smart_accounting-${{ github.event.number }}
@@ -79,7 +74,9 @@ jobs:
             ${{ runner.os }}-yarn-
 
       - name: Install MariaDB Client
-        run: sudo apt-get install mariadb-client-10.6
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y mariadb-client
 
       - name: Setup
         run: |
