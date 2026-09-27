@@ -2,6 +2,7 @@
  * Smart Board - Constants
  * 全局常量配置
  */
+import { GRANTS_YEAR_BOARDS } from './smartBoardConfig.js';
 
 // Placeholder Project Type that holds archived projects whose original board was
 // deleted. Restoring such a project prompts the user to pick a real Project Type.
@@ -17,10 +18,7 @@ export const PROJECT_TYPE_ICONS = {
     'Bookkeeping': 'clipboard',
     'R&D Grant': 'clipboard',
     'Grants': 'clipboard',
-    'FY 2024': 'clipboard',
-    'FY 2025': 'clipboard',
-    'FY 2026': 'clipboard',
-    'FY 2027': 'clipboard',
+    ...Object.fromEntries(GRANTS_YEAR_BOARDS.map((board) => [board, 'clipboard'])),
     'SMSF': 'clipboard',
     'Audit': 'clipboard',
     'Financial Statements': 'clipboard'
@@ -302,10 +300,7 @@ export const DEFAULT_COLUMNS = {
         { field: 'status', label: 'Status', width: 150 },
         { field: 'modified', label: 'Last Updated', width: 160 }
     ],
-    'FY 2024': makeGrantsDefaultColumns(),
-    'FY 2025': makeGrantsDefaultColumns(),
-    'FY 2026': makeGrantsDefaultColumns(),
-    'FY 2027': makeGrantsDefaultColumns(),
+    ...Object.fromEntries(GRANTS_YEAR_BOARDS.map((board) => [board, makeGrantsDefaultColumns()])),
     'DEFAULT': [
         { field: 'customer', label: 'Client Name', width: 200, frozen: true },
         { field: 'project_name', label: 'Project Name', width: 250 },

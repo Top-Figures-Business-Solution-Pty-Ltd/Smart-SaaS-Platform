@@ -13,9 +13,22 @@ from typing import Any
 
 import frappe
 
+from smart_accounting.api.authz import ensure_admin_like
+from smart_accounting.config.smart_board import GRANTS_STATUS_ORDER as CONFIG_GRANTS_STATUS_ORDER
+from smart_accounting.config.smart_board import GRANTS_YEAR_BOARDS
+
 
 DEFAULT_KEY_PROJECT_TYPE_ORDER = "smart_accounting_project_type_order"
 DEFAULT_KEY_PROJECT_TYPE_STATUS_CONFIG = "smart_accounting_project_type_status_config"
+DEFAULT_KEY_QUARTERLY_DUE_DATE_RULES = "smart_accounting_quarterly_due_date_rules"
+
+DEFAULT_QUARTERLY_DUE_DATE_RULES: list[dict[str, str]] = [
+	{"label": "FY 2025-26 Q3", "due_date": "2026-05-26"},
+	{"label": "FY 2025-26 Q4", "due_date": "2026-08-25"},
+	{"label": "FY 2026-27 Q1", "due_date": "2026-11-25"},
+	{"label": "FY 2026-27 Q2", "due_date": "2027-02-28"},
+	{"label": "FY 2026-27 Q3", "due_date": "2027-05-25"},
+]
 
 # Special-rule toggle keys (global defaults). Unset value means "enabled" (default ON).
 _SPECIAL_RULE_KEY_PREFIX = "smart_accounting_special_rule_"
@@ -31,17 +44,7 @@ def _ensure_logged_in() -> None:
 
 def _ensure_can_manage_board_settings() -> None:
 	# Board settings affect everyone; keep it admin/system-manager for now.
-	user = frappe.session.user
-	if user == "Administrator":
-		return
-	# Frappe has no stable top-level frappe.has_role API across versions.
-	# Use get_roles(user) which is the supported role lookup path.
-	try:
-		roles = frappe.get_roles(user) or []
-	except Exception:
-		roles = []
-	if "System Manager" not in {str(r or "").strip() for r in roles}:
-		frappe.throw("Not permitted", frappe.PermissionError)
+	ensure_admin_like()
 
 
 def _get_all_project_types() -> list[str]:
@@ -81,17 +84,8 @@ def _get_project_status_pool() -> list[str]:
 # Rationale: R&D workflow statuses only make sense on Smart Grants boards. Scoping
 # them here prevents them from showing up in Status Settings / status dropdowns of
 # unrelated boards (BAS, IAS, ASIC, TPAR, ...). To change scope, edit this map.
-# All Smart Grants boards (the legacy aggregate board + the per-year boards).
-# Statuses scoped to grants should be available on every grants board, not just the
-# legacy "Smart Grants" one.
-SMART_GRANTS_BOARDS: set[str] = {
-	# Legacy aggregated "Smart Grants" board was removed (see
-	# patches.drop_smart_grants_board); only the per-year boards remain.
-	"FY 2024",
-	"FY 2025",
-	"FY 2026",
-	"FY 2027",
-}
+# Statuses scoped to grants should be available on every grants board.
+SMART_GRANTS_BOARDS: set[str] = set(GRANTS_YEAR_BOARDS)
 
 # Smart Grants boards use a fixed, code-managed status set AND order (not the
 # global Property Setter order, and not the admin Status Settings UI). This keeps
@@ -99,26 +93,7 @@ SMART_GRANTS_BOARDS: set[str] = {
 # listed here (e.g. "Working on it", "Waiting for client", "R&D") simply don't
 # appear on grants boards. "Not to Proceed" is a terminal/exception state kept at
 # the end. Every name here must exist in the global status pool to be selectable.
-GRANTS_STATUS_ORDER: list[str] = [
-	"Not started",
-	"Hold",
-	"Waiting for kickoff",
-	"Waiting for tech meeting",
-	"Waiting for tech evidence",
-	"Waiting for evidence review",
-	"Preparing R&D report",
-	"Waiting for report review and signature",
-	"Preparing application form",
-	"Waiting for AP review",
-	"Waiting for financial accounts",
-	"Preparing R&D exp calculation",
-	"Waiting for responses to fin queries",
-	"Final pack prep",
-	"Waiting for CTR",
-	"Waiting for payment",
-	"Completed",
-	"Not to Proceed",
-]
+GRANTS_STATUS_ORDER: list[str] = list(CONFIG_GRANTS_STATUS_ORDER)
 
 _STATUS_PROJECT_TYPE_SCOPE: dict[str, set[str]] = {
 	# R&D workflow statuses (2026-04) — Smart Grants boards only
@@ -423,6 +398,46 @@ def _coerce_bool_flag(raw: Any, default: bool = True) -> bool:
 	return True
 
 
+def _normalize_quarterly_due_date_rules(rules: Any) -> list[dict[str, str]]:
+	val = rules
+	if isinstance(val, str):
+		try:
+			val = frappe.parse_json(val)
+		except Exception:
+			val = None
+	if not isinstance(val, list):
+		val = []
+	out: list[dict[str, str]] = []
+	seen = set()
+	for item in val:
+		if not isinstance(item, dict):
+			continue
+		label = str(item.get("label") or "").strip()
+		due_date = str(item.get("due_date") or "").strip()
+		if not label or not due_date:
+			continue
+		try:
+			frappe.utils.getdate(due_date)
+		except Exception:
+			continue
+		key = (label, due_date)
+		if key in seen:
+			continue
+		seen.add(key)
+		out.append({"label": label, "due_date": due_date})
+	out.sort(key=lambda x: x.get("due_date") or "")
+	return out
+
+
+def get_quarterly_due_date_rules() -> list[dict[str, str]]:
+	try:
+		raw = frappe.defaults.get_global_default(DEFAULT_KEY_QUARTERLY_DUE_DATE_RULES)
+	except Exception:
+		raw = None
+	rules = _normalize_quarterly_due_date_rules(raw)
+	return rules or [dict(x) for x in DEFAULT_QUARTERLY_DUE_DATE_RULES]
+
+
 def get_special_rule_enabled(key: str) -> bool:
 	"""Internal helper: read a special-rule flag. Defaults to True when unset."""
 	try:
@@ -453,3 +468,24 @@ def set_special_rule_flag(key: str | None = None, enabled: Any = None) -> dict:
 		"1" if val else "0",
 	)
 	return {"ok": True, "key": k, "enabled": val}
+
+
+@frappe.whitelist()
+def get_quarterly_due_date_rules_api() -> dict:
+	_ensure_logged_in()
+	return {
+		"items": get_quarterly_due_date_rules(),
+		"defaults": [dict(x) for x in DEFAULT_QUARTERLY_DUE_DATE_RULES],
+		"meta": {"key": DEFAULT_KEY_QUARTERLY_DUE_DATE_RULES},
+	}
+
+
+@frappe.whitelist()
+def set_quarterly_due_date_rules(rules: Any = None) -> dict:
+	_ensure_logged_in()
+	_ensure_can_manage_board_settings()
+	clean = _normalize_quarterly_due_date_rules(rules)
+	if not clean:
+		frappe.throw("At least one quarterly due date rule is required")
+	frappe.defaults.set_global_default(DEFAULT_KEY_QUARTERLY_DUE_DATE_RULES, frappe.as_json(clean))
+	return {"ok": True, "items": clean}

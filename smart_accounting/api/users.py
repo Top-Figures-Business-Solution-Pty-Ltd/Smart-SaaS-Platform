@@ -8,6 +8,7 @@ from importlib import import_module
 from typing import Any
 
 import frappe
+from smart_accounting.api.authz import ensure_admin_like, is_admin_like
 
 SMART_ACCOUNTING_ROLE = "Smart Accounting User"
 SMART_GRANTS_ROLE = "Smart Grants User"
@@ -51,22 +52,11 @@ def _parse_payload(payload: dict | str | None = None) -> dict[str, Any]:
 
 
 def _is_admin_like(user: str | None = None) -> bool:
-	username = str(user or frappe.session.user or "").strip()
-	if not username:
-		return False
-	if username == "Administrator":
-		return True
-	try:
-		roles = frappe.get_roles(username) or []
-	except Exception:
-		roles = []
-	return "System Manager" in {str(r or "").strip() for r in roles}
+	return is_admin_like(user)
 
 
 def _ensure_user_admin() -> None:
-	_ensure_logged_in()
-	if not _is_admin_like():
-		frappe.throw("Not permitted", frappe.PermissionError)
+	ensure_admin_like()
 
 
 def _split_full_name(full_name: str | None = None) -> tuple[str, str]:
@@ -157,7 +147,7 @@ def get_users(search: str | None = None, limit_start: int = 0, limit_page_length
 	Returns:
 	- items: [{name, full_name, email, enabled}]
 	"""
-	_ensure_logged_in()
+	_ensure_user_admin()
 
 	q = str(search or "").strip()
 	limit_start = max(0, _normalize_int(limit_start, 0))

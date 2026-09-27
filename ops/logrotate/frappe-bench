@@ -1,0 +1,11 @@
+/home/jeffrey/frappe-bench/logs/*.log
+/home/jeffrey/frappe-bench/sites/*/logs/*.log {
+    daily
+    rotate 14
+    compress
+    delaycompress
+    missingok
+    notifempty
+    copytruncate
+    create 0640 jeffrey jeffrey
+}

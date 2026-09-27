@@ -12,7 +12,7 @@ import { BoardSettingsService } from '../../services/boardSettingsService.js';
 import { notify } from '../../services/uiAdapter.js';
 
 export class AutomationModal {
-  constructor({ meta = {}, items = [], totalCount = 0, pageSize = 50, onLoadMore, onSave, onToggle, onDelete, onOpenProject, onOpenLogs, onClose } = {}) {
+  constructor({ meta = {}, items = [], totalCount = 0, pageSize = 50, onLoadMore, onSave, onToggle, onDelete, onOpenProject, onOpenLogs, onOpenHealth, onClose } = {}) {
     this.meta = meta || {};
     this.items = Array.isArray(items) ? items.map((it) => ({
       ...it,
@@ -26,6 +26,7 @@ export class AutomationModal {
     this.onLoadMore = onLoadMore || (async () => ({ items: [], meta: {} }));
     this.onOpenProject = onOpenProject || (() => {});
     this.onOpenLogs = onOpenLogs || (() => {});
+    this.onOpenHealth = onOpenHealth || (() => {});
     this.onClose = onClose || (() => {});
 
     this._modal = null;
@@ -43,6 +44,7 @@ export class AutomationModal {
     this._specialRuleFlags = {
       'monthly-due-dates': { enabled: true, loaded: false, saving: false },
     };
+    this._quarterlyDueDateRules = { items: [], defaults: [], loaded: false, loading: false, saving: false };
   }
 
   open() {
@@ -69,6 +71,7 @@ export class AutomationModal {
     this._renderList();
     if (this._isProbablyAdmin()) {
       this._ensureSpecialRuleFlagLoaded('monthly-due-dates');
+      this._ensureQuarterlyDueDateRulesLoaded();
     }
   }
 
@@ -136,12 +139,22 @@ export class AutomationModal {
     wrap.querySelectorAll('.sb-auto__special-toggle').forEach((el) => {
       el.addEventListener('change', (e) => this._handleToggleSpecialRule(e));
     });
+    wrap.querySelectorAll('.sb-auto__quarterly-field').forEach((el) => {
+      el.addEventListener('input', (e) => this._handleQuarterlyRuleInput(e));
+    });
+    wrap.querySelectorAll('.sb-auto__quarterly-delete').forEach((el) => {
+      el.addEventListener('click', (e) => this._handleQuarterlyRuleDelete(e));
+    });
+    wrap.querySelector('.sb-auto__quarterly-add')?.addEventListener('click', () => this._handleQuarterlyRuleAdd());
+    wrap.querySelector('.sb-auto__quarterly-reset')?.addEventListener('click', () => this._handleQuarterlyRuleReset());
+    wrap.querySelector('.sb-auto__quarterly-save')?.addEventListener('click', () => this._handleQuarterlyRuleSave());
     wrap.querySelectorAll('.sb-auto__run-open').forEach((el) => {
       el.addEventListener('click', (e) => this._handleOpenProject(e));
     });
     wrap.querySelectorAll('.sb-auto__runs-open-all').forEach((el) => {
       el.addEventListener('click', (e) => this._handleOpenLogs(e));
     });
+    wrap.querySelector('.sb-auto__health-open')?.addEventListener('click', () => this.onOpenHealth?.());
     const editor = wrap.querySelector('#sbAutoEditor');
     if (editor && !this._activeSpecialKey) this._bindRuleEvents(editor);
     if (!this._activeSpecialKey) this._ensureActiveRunsLoaded();
@@ -199,12 +212,14 @@ export class AutomationModal {
   _getSpecialRules() {
     const monthlyFlag = this._specialRuleFlags?.['monthly-due-dates'];
     const monthlyStatus = monthlyFlag?.enabled === false ? 'Off' : 'Active';
+    const quarterly = this._quarterlyDueDateRules || {};
+    const quarterlyStatus = quarterly.saving ? 'Saving...' : (quarterly.loading ? 'Loading...' : 'Active');
     return [
       {
         key: 'quarterly-due-dates',
         name: 'Quarterly Due Date Rules',
         scope: 'BAS / IAS',
-        status: 'In development',
+        status: quarterlyStatus,
       },
       {
         key: 'monthly-due-dates',
@@ -233,6 +248,7 @@ export class AutomationModal {
         <div class="sb-auto__special-list">
           ${items}
         </div>
+        <button class="btn btn-default btn-xs sb-auto__health-open" type="button" style="margin-top:10px;">Health check</button>
       </div>
     `;
   }
@@ -244,29 +260,7 @@ export class AutomationModal {
       return `<div class="sb-automation__empty text-muted">Unknown special rule.</div>`;
     }
     if (key === 'quarterly-due-dates') {
-      return `
-        <div class="sb-cardlike">
-          <div class="sb-cardlike__title">${escapeHtml(rule.name)}</div>
-          <div class="sb-settings__hint-badge">In development</div>
-          <p class="text-muted" style="margin-top:12px;">
-            Scope: BAS and IAS projects on a Quarterly frequency.
-          </p>
-          <p class="text-muted" style="margin-top:8px;">
-            Current behaviour (built into the <code>Roll Lodgement Due forward by frequency</code> automation action):
-          </p>
-          <ul class="text-muted" style="margin:8px 0 0 18px; padding:0;">
-            <li>Before 26 May 2026 — rolls to 26 May 2026 (FY 2025-26 Q3).</li>
-            <li>From 26 May 2026 up to 25 August 2026 — rolls to 25 August 2026 (FY 2025-26 Q4).</li>
-            <li>From 25 August 2026 up to 25 November 2026 — rolls to 25 November 2026 (FY 2026-27 Q1).</li>
-            <li>From 25 November 2026 up to 28 February 2027 — rolls to 28 February 2027 (FY 2026-27 Q2).</li>
-            <li>From 28 February 2027 up to 25 May 2027 — rolls to 25 May 2027 (FY 2026-27 Q3).</li>
-            <li>On or after 25 May 2027 — rollover stops and a warning is shown to the user.</li>
-          </ul>
-          <p class="text-muted" style="margin-top:12px;">
-            Future versions will let administrators maintain BAS / IAS quarterly due dates per fiscal year from this section, without requiring a code release.
-          </p>
-        </div>
-      `;
+      return this._quarterlyDueDateRulesHTML(rule);
     }
     if (key === 'monthly-due-dates') {
       const flag = this._specialRuleFlags?.['monthly-due-dates'] || { enabled: true, loaded: false, saving: false };
@@ -301,6 +295,121 @@ export class AutomationModal {
     return `<div class="sb-automation__empty text-muted">${escapeHtml(rule.name)} — details coming soon.</div>`;
   }
 
+  _quarterlyDueDateRulesHTML(rule) {
+    const state = this._quarterlyDueDateRules || {};
+    const rows = Array.isArray(state.items) ? state.items : [];
+    const disabled = state.saving || state.loading ? 'disabled' : '';
+    const rowHTML = rows.length ? rows.map((item, idx) => `
+      <div class="sb-auto__quarterly-row" style="display:grid; grid-template-columns:minmax(160px, 1fr) 160px auto; gap:8px; align-items:center; margin-top:8px;">
+        <input class="form-control sb-auto__quarterly-field" data-idx="${idx}" data-field="label" type="text" value="${escapeHtml(item?.label || '')}" placeholder="FY 2026-27 Q1" ${disabled} />
+        <input class="form-control sb-auto__quarterly-field" data-idx="${idx}" data-field="due_date" type="date" value="${escapeHtml(item?.due_date || '')}" ${disabled} />
+        <button class="btn btn-default btn-xs sb-auto__quarterly-delete" type="button" data-idx="${idx}" ${disabled}>Remove</button>
+      </div>
+    `).join('') : '<div class="text-muted" style="font-size:12px; margin-top:10px;">No rules configured yet.</div>';
+    const status = state.saving ? 'Saving...' : (state.loading ? 'Loading...' : 'Active');
+    return `
+      <div class="sb-cardlike">
+        <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px;">
+          <div>
+            <div class="sb-cardlike__title">${escapeHtml(rule.name)}</div>
+            <p class="text-muted" style="margin-top:8px;">
+              Scope: BAS and IAS projects on a Quarterly frequency. The rollover action picks the next due date after the project's current lodgement due date.
+            </p>
+          </div>
+          <div class="sb-settings__hint-badge">${escapeHtml(status)}</div>
+        </div>
+        <div style="margin-top:14px; border:1px solid var(--border-color, #e5e7eb); border-radius:10px; padding:12px; background:rgba(249,250,251,.7);">
+          <div style="display:grid; grid-template-columns:minmax(160px, 1fr) 160px auto; gap:8px; font-size:12px; font-weight:600; color:var(--text-muted, #6b7280);">
+            <div>Quarter / label</div>
+            <div>Due date</div>
+            <div></div>
+          </div>
+          ${state.loading ? '<div class="text-muted" style="font-size:12px; margin-top:10px;">Loading rules...</div>' : rowHTML}
+        </div>
+        <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:12px;">
+          <button class="btn btn-default btn-sm sb-auto__quarterly-add" type="button" ${disabled}>+ Add row</button>
+          <button class="btn btn-default btn-sm sb-auto__quarterly-reset" type="button" ${disabled}>Reset to defaults</button>
+          <button class="btn btn-primary btn-sm sb-auto__quarterly-save" type="button" ${disabled}>${state.saving ? 'Saving...' : 'Save rules'}</button>
+        </div>
+        <p class="text-muted" style="margin-top:10px; font-size:12px;">
+          Saving this only updates configuration. It does not run automations or change any project immediately.
+        </p>
+      </div>
+    `;
+  }
+
+  async _ensureQuarterlyDueDateRulesLoaded() {
+    const state = this._quarterlyDueDateRules;
+    if (!state || state.loaded || state.loading) return;
+    state.loading = true;
+    try {
+      const resp = await BoardSettingsService.getQuarterlyDueDateRules();
+      state.items = Array.isArray(resp?.items) ? resp.items.map((x) => ({ label: x?.label || '', due_date: x?.due_date || '' })) : [];
+      state.defaults = Array.isArray(resp?.defaults) ? resp.defaults.map((x) => ({ label: x?.label || '', due_date: x?.due_date || '' })) : [];
+      state.loaded = true;
+    } catch (e) {
+      state.loaded = true;
+    } finally {
+      state.loading = false;
+      if (this._activeSpecialKey === 'quarterly-due-dates') this._renderList();
+    }
+  }
+
+  _handleQuarterlyRuleInput(e) {
+    const el = e?.currentTarget;
+    const idx = Number(el?.dataset?.idx);
+    const field = String(el?.dataset?.field || '');
+    if (!Number.isFinite(idx) || !['label', 'due_date'].includes(field)) return;
+    const state = this._quarterlyDueDateRules;
+    if (!Array.isArray(state.items) || !state.items[idx]) return;
+    state.items[idx] = { ...state.items[idx], [field]: String(el.value || '') };
+  }
+
+  _handleQuarterlyRuleDelete(e) {
+    const idx = Number(e?.currentTarget?.dataset?.idx);
+    const state = this._quarterlyDueDateRules;
+    if (!Number.isFinite(idx) || !Array.isArray(state.items)) return;
+    state.items.splice(idx, 1);
+    this._renderList();
+  }
+
+  _handleQuarterlyRuleAdd() {
+    const state = this._quarterlyDueDateRules;
+    if (!Array.isArray(state.items)) state.items = [];
+    state.items.push({ label: '', due_date: '' });
+    this._renderList();
+  }
+
+  _handleQuarterlyRuleReset() {
+    const state = this._quarterlyDueDateRules;
+    const defaults = Array.isArray(state.defaults) && state.defaults.length ? state.defaults : [];
+    state.items = defaults.map((x) => ({ label: x?.label || '', due_date: x?.due_date || '' }));
+    this._renderList();
+  }
+
+  async _handleQuarterlyRuleSave() {
+    const state = this._quarterlyDueDateRules;
+    if (!state || state.saving) return;
+    const items = (Array.isArray(state.items) ? state.items : [])
+      .map((x) => ({ label: String(x?.label || '').trim(), due_date: String(x?.due_date || '').trim() }))
+      .filter((x) => x.label && x.due_date);
+    if (!items.length) {
+      notify('Please keep at least one quarterly due date rule.', 'orange');
+      return;
+    }
+    state.saving = true;
+    this._renderList();
+    try {
+      const resp = await BoardSettingsService.setQuarterlyDueDateRules(items);
+      state.items = Array.isArray(resp?.items) ? resp.items.map((x) => ({ label: x?.label || '', due_date: x?.due_date || '' })) : items;
+      state.loaded = true;
+      notify('Quarterly due date rules saved.', 'green');
+    } finally {
+      state.saving = false;
+      this._renderList();
+    }
+  }
+
   _handleSelectSpecialRule(e) {
     this._syncActiveRuleFromDOM();
     const key = String(e.currentTarget?.dataset?.key || '').trim();
@@ -309,6 +418,7 @@ export class AutomationModal {
     this._activeIdx = -1;
     this._renderList();
     this._ensureSpecialRuleFlagLoaded(key);
+    if (key === 'quarterly-due-dates') this._ensureQuarterlyDueDateRulesLoaded();
   }
 
   async _ensureSpecialRuleFlagLoaded(key) {

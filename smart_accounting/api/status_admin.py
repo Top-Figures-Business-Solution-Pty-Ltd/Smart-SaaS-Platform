@@ -10,39 +10,11 @@ from __future__ import annotations
 
 import frappe
 
+from smart_accounting.config.smart_board import GLOBAL_PROJECT_STATUS_POOL
+
 
 def _status_pool() -> list[str]:
-	return [
-		"Not started",
-		"Working on it",
-		"Waiting for client",
-		"R&D",
-		# R&D workflow statuses (2026-04)
-		"Waiting for kickoff",
-		"Waiting for tech meeting",
-		"Waiting for tech evidence",
-		"Waiting for evidence review",
-		"Preparing R&D report",
-		"Waiting for report review and signature",
-		"Preparing application form",
-		"Waiting for AP review",
-		"Waiting for financial accounts",
-		"Preparing R&D exp calculation",
-		"Waiting for responses to fin queries",
-		"Final pack prep",
-		"Ready for manager review",
-		"Review points to be actioned",
-		"Ready for partner review",
-		"Ready to send to client",
-		"Sent to client for signature",
-		"Hold",
-		# Smart Grants only — CTR gate before payment (scoped in board_settings)
-		"Waiting for CTR",
-		"Waiting for payment",
-		# Smart Grants only — engagement decided not to proceed (scoped in board_settings)
-		"Not to Proceed",
-		"Completed",
-	]
+	return list(GLOBAL_PROJECT_STATUS_POOL)
 
 
 def apply_project_status_pool() -> dict:

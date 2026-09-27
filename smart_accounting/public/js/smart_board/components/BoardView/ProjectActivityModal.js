@@ -101,6 +101,10 @@ export class ProjectActivityModal {
         this._undo(activityName, expectedTo);
         return;
       }
+      if (action === 'undo-batch') {
+        this._undoBatch(btn.dataset.batchId, btn.dataset.batchSize);
+        return;
+      }
       if (action === 'edit-comment') {
         this._editingCommentName = String(btn.dataset.commentName || '').trim();
         this._load({ append: false });
@@ -203,6 +207,8 @@ export class ProjectActivityModal {
     }
     const desc = isCreate ? 'created this project' : this._describeChangeHTML(it);
     const canUndo = !isCreate && !!it?.undoable && !!String(it?.activity_name || '').trim();
+    const batchId = String(it?.batch_id || '').trim();
+    const batchSize = Number(it?.batch_size || 0) || 0;
     return `
       <div class="sb-project-activity__item">
         <div class="sb-project-activity__meta">
@@ -215,6 +221,7 @@ export class ProjectActivityModal {
         ${canUndo ? `
           <div class="sb-project-activity__actions">
             <button class="btn btn-default btn-xs" type="button" data-action="undo" data-activity-name="${escapeHtml(String(it?.activity_name || ''))}" data-expected-to="${escapeHtml(String(it?.to_value || ''))}">Undo</button>
+            ${batchId ? `<button class="btn btn-default btn-xs" type="button" data-action="undo-batch" data-batch-id="${escapeHtml(batchId)}" data-batch-size="${escapeHtml(String(batchSize || ''))}">Undo batch</button>` : ''}
           </div>
         ` : ''}
       </div>
@@ -276,6 +283,36 @@ export class ProjectActivityModal {
     } catch (e) {
       const msg = String(e?.message || 'Undo failed');
       frappe.show_alert({ message: msg, indicator: 'red' });
+    } finally {
+      this._undoing = false;
+    }
+  }
+
+  async _undoBatch(batchId, batchSize) {
+    if (this._undoing) return;
+    const bid = String(batchId || '').trim();
+    if (!bid) return;
+    const n = Number(batchSize || 0) || 0;
+    const msg = n > 1
+      ? `Undo this bulk edit across up to ${n} projects? Rows changed again will be skipped.`
+      : 'Undo this bulk edit? Rows changed again will be skipped.';
+    const ok = window.confirm(msg);
+    if (!ok) return;
+    this._undoing = true;
+    try {
+      const res = await ProjectActivityService.undoProjectActivityBatch(bid);
+      const undone = Number(res?.undone_count || 0);
+      const skipped = Number(res?.skipped_count || 0);
+      const failed = Number(res?.failed_count || 0);
+      const parts = [`Undo completed: ${undone} reverted`];
+      if (skipped) parts.push(`${skipped} skipped`);
+      if (failed) parts.push(`${failed} failed`);
+      frappe.show_alert({ message: parts.join(', '), indicator: failed ? 'orange' : 'green' });
+      try { this.onChanged?.(); } catch (e) {}
+      await this._load({ append: false });
+    } catch (e) {
+      const msg2 = String(e?.message || 'Batch undo failed');
+      frappe.show_alert({ message: msg2, indicator: 'red' });
     } finally {
       this._undoing = false;
     }

@@ -1187,14 +1187,19 @@ def bulk_set_project_field(projects: Any, field: str, value: Any) -> dict:
 		frappe.throw("Missing field")
 
 	updated: list[str] = []
+	batch_id = frappe.generate_hash(length=12) if len(names) > 1 else ""
 	for name in names:
 		doc = frappe.get_doc("Project", name)
 		_ensure_write_permission(doc)
 		doc.set(field, value)
+		if batch_id:
+			doc._sb_activity_batch_id = batch_id
+			doc._sb_activity_batch_label = "Bulk inline edit"
+			doc._sb_activity_batch_size = len(names)
 		doc.save()
 		updated.append(doc.name)
 
-	return {"updated": updated}
+	return {"updated": updated, "batch_id": batch_id}
 
 
 @frappe.whitelist()

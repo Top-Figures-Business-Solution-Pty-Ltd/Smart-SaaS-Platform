@@ -8,7 +8,9 @@ import { DoctypeMetaService } from '../services/doctypeMetaService.js';
 import { notify } from '../services/uiAdapter.js';
 
 function esc(v) {
-  const s = String(v == null ? '' : v);
+  let s = String(v == null ? '' : v);
+  // Prevent CSV formula injection in spreadsheet apps (Excel/Sheets).
+  if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
   if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
   return s;
 }
@@ -203,16 +205,18 @@ function buildProjectsCsvText(rows, cols, metaMap = new Map()) {
   return `\ufeff${lines.join('\n')}`;
 }
 
-export async function exportCurrentProjectsCSV({ store, viewType } = {}) {
+export async function exportCurrentProjectsCSV({ store, viewType, includeUpdates = true } = {}) {
   const rows = store?.getState?.()?.projects?.items || [];
   if (!Array.isArray(rows) || !rows.length) {
     notify('No loaded project rows to export.', 'orange');
     return;
   }
   notify('Preparing project export...', 'blue');
-  const cols = withUpdatesExportColumn(normalizeExportColumns(await resolveProjectColumns(viewType)));
+  let cols = normalizeExportColumns(await resolveProjectColumns(viewType));
+  if (includeUpdates) cols = withUpdatesExportColumn(cols);
   const metaMap = await projectMetaMap();
-  const exportRows = await attachLinkLabelsForExport(await attachUpdatesForExport(rows), cols, metaMap);
+  const sourceRows = includeUpdates ? await attachUpdatesForExport(rows) : rows;
+  const exportRows = await attachLinkLabelsForExport(sourceRows, cols, metaMap);
   const file = `projects_${String(viewType || 'board').replace(/\s+/g, '_')}_${todayStamp()}.csv`;
   download(file, buildProjectsCsvText(exportRows, cols, metaMap));
   notify(`Exported ${rows.length} loaded projects.`, 'green');
@@ -222,7 +226,7 @@ export async function exportCurrentProjectsCSV({ store, viewType } = {}) {
 // - `columns` (optional): the columns currently rendered by the caller; lets us
 //   honour "export exactly what I see", including unsaved column tweaks.
 // - Falls back to the Saved View columns when `columns` is missing/empty.
-export async function exportSelectedProjectsCSV({ store, viewType, selectedNames, columns } = {}) {
+export async function exportSelectedProjectsCSV({ store, viewType, selectedNames, columns, includeUpdates = true } = {}) {
   const names = (Array.isArray(selectedNames) ? selectedNames : [])
     .map((n) => String(n || '').trim())
     .filter(Boolean);
@@ -246,9 +250,10 @@ export async function exportSelectedProjectsCSV({ store, viewType, selectedNames
     return;
   }
   notify('Preparing selected project export...', 'blue');
-  cols = withUpdatesExportColumn(cols);
+  if (includeUpdates) cols = withUpdatesExportColumn(cols);
   const metaMap = await projectMetaMap();
-  const exportRows = await attachLinkLabelsForExport(await attachUpdatesForExport(rows), cols, metaMap);
+  const sourceRows = includeUpdates ? await attachUpdatesForExport(rows) : rows;
+  const exportRows = await attachLinkLabelsForExport(sourceRows, cols, metaMap);
   const file = `projects_${String(viewType || 'board').replace(/\s+/g, '_')}_selected_${todayStamp()}.csv`;
   download(file, buildProjectsCsvText(exportRows, cols, metaMap));
   notify(`Exported ${rows.length} selected projects.`, 'green');

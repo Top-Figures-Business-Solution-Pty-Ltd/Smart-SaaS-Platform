@@ -26,5 +26,25 @@ export class ProjectActivityService {
     });
     return r?.message || { ok: false };
   }
+
+  static async undoProjectActivityBatch(batchId) {
+    const batch = String(batchId || '').trim();
+    if (!batch) throw new Error('Missing batch id');
+    const r = await frappe.call({
+      method: 'smart_accounting.api.activity_log.undo_project_activity_batch',
+      args: { batch_id: batch },
+    });
+    return r?.message || { ok: false };
+  }
+
+  static async undoProjectActivityBatch(batchId) {
+    const batch = String(batchId || '').trim();
+    if (!batch) throw new Error('Missing batch id');
+    const r = await frappe.call({
+      method: 'smart_accounting.api.activity_log.undo_project_activity_batch',
+      args: { batch_id: batch },
+    });
+    return r?.message || { ok: false };
+  }
 }
 

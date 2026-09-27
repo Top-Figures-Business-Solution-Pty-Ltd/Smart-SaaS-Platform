@@ -463,9 +463,13 @@ def archive_client(name: str | None = None) -> dict:
 		frappe.throw("name is required")
 	if not frappe.db.exists("Customer", docname):
 		frappe.throw("Client not found")
+	if not frappe.has_permission("Customer", "write", docname):
+		frappe.throw("Not permitted", frappe.PermissionError)
 
-	customer_name = frappe.db.get_value("Customer", docname, "customer_name") or docname
-	frappe.db.set_value("Customer", docname, "disabled", 1, update_modified=True)
+	customer_doc = frappe.get_doc("Customer", docname)
+	customer_name = customer_doc.get("customer_name") or docname
+	customer_doc.disabled = 1
+	customer_doc.save()
 
 	project_rows = frappe.get_all(
 		"Project",
@@ -480,6 +484,8 @@ def archive_client(name: str | None = None) -> dict:
 			continue
 		try:
 			doc = frappe.get_doc("Project", project_name)
+			if not doc.has_permission("write"):
+				continue
 			doc.is_active = "No"
 			doc._sb_archive_source = "client_archive"
 			doc._sb_archive_client_ref = docname
@@ -489,7 +495,7 @@ def archive_client(name: str | None = None) -> dict:
 			if doc.meta.has_field("custom_archive_source_ref"):
 				doc.custom_archive_source_ref = docname
 			doc.flags.skip_board_automation = True
-			doc.save(ignore_permissions=True)
+			doc.save()
 			archived_projects += 1
 		except Exception:
 			continue
@@ -513,8 +519,12 @@ def restore_client(name: str | None = None) -> dict:
 		frappe.throw("name is required")
 	if not frappe.db.exists("Customer", docname):
 		frappe.throw("Client not found")
+	if not frappe.has_permission("Customer", "write", docname):
+		frappe.throw("Not permitted", frappe.PermissionError)
 
-	frappe.db.set_value("Customer", docname, "disabled", 0, update_modified=True)
+	customer_doc = frappe.get_doc("Customer", docname)
+	customer_doc.disabled = 0
+	customer_doc.save()
 
 	project_filters: dict[str, Any] = {"customer": docname, "is_active": "No"}
 	if frappe.db.has_column("Project", "custom_archive_source"):
@@ -534,13 +544,15 @@ def restore_client(name: str | None = None) -> dict:
 			continue
 		try:
 			doc = frappe.get_doc("Project", project_name)
+			if not doc.has_permission("write"):
+				continue
 			doc.is_active = "Yes"
 			if doc.meta.has_field("custom_archive_source"):
 				doc.custom_archive_source = ""
 			if doc.meta.has_field("custom_archive_source_ref"):
 				doc.custom_archive_source_ref = ""
 			doc.flags.skip_board_automation = True
-			doc.save(ignore_permissions=True)
+			doc.save()
 			restored_projects += 1
 		except Exception:
 			continue

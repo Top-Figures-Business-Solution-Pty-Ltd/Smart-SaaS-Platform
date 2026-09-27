@@ -1132,6 +1132,14 @@ class CustomProject(Project):
                 row["automation_name"] = str(field_meta.get("automation_name") or "").strip()
                 row["automation_run_id"] = str(field_meta.get("automation_run_id") or "").strip()
                 row["automation_action_type"] = str(field_meta.get("automation_action_type") or "").strip()
+            batch_id = str(getattr(self, "_sb_activity_batch_id", "") or "").strip()
+            if batch_id:
+                row["batch_id"] = batch_id
+                row["batch_label"] = str(getattr(self, "_sb_activity_batch_label", "") or "").strip()
+                try:
+                    row["batch_size"] = int(getattr(self, "_sb_activity_batch_size", 0) or 0)
+                except Exception:
+                    row["batch_size"] = 0
             out.append(row)
         self._sb_activity_changes = out
 
@@ -1394,6 +1402,27 @@ _QUARTERLY_BAS_IAS_DUE_DATES = (
 )
 
 
+def _get_quarterly_bas_ias_due_dates():
+    try:
+        from smart_accounting.api.board_settings import get_quarterly_due_date_rules
+
+        due_dates = []
+        for rule in get_quarterly_due_date_rules():
+            if not isinstance(rule, dict):
+                continue
+            label = str(rule.get("label") or "").strip()
+            due_date = rule.get("due_date")
+            if not label or not due_date:
+                continue
+            due_dates.append((label, getdate(due_date)))
+        if due_dates:
+            due_dates.sort(key=lambda x: x[1])
+            return tuple(due_dates)
+    except Exception:
+        pass
+    return _QUARTERLY_BAS_IAS_DUE_DATES
+
+
 def _is_quarterly_bas_ias_project(project_type: str, frequency: str) -> bool:
     pt = str(project_type or "").strip().lower()
     freq = str(frequency or "").strip().lower()
@@ -1417,11 +1446,12 @@ def _resolve_special_quarterly_bas_ias_due_date(*, current_date, project_type: s
         return None
 
     d = getdate(current_date)
-    for _label, due_date in _QUARTERLY_BAS_IAS_DUE_DATES:
+    due_dates = _get_quarterly_bas_ias_due_dates()
+    for _label, due_date in due_dates:
         if d < due_date:
             return due_date, ""
 
-    final_label, final_due_date = _QUARTERLY_BAS_IAS_DUE_DATES[-1]
+    final_label, final_due_date = due_dates[-1]
     return None, (
         f"The current quarterly rollover rule cannot go beyond {final_label} "
         f"({final_due_date.strftime('%d %B %Y')})."

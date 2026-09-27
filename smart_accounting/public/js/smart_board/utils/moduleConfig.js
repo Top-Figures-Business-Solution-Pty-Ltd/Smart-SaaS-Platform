@@ -1,3 +1,5 @@
+import { GRANTS_YEAR_BOARDS, getCurrentGrantsYearBoard } from './smartBoardConfig.js';
+
 const SHARED_PROJECT_FIELDS = new Set([
   'project_name',
   'customer',
@@ -188,7 +190,7 @@ export function getRollOverConfig({ moduleKey = null } = {}) {
       enabled: true,
       defaultTargetMode: 'other',
       allowSameBoard: true,
-      yearBoards: ['FY 2024', 'FY 2025', 'FY 2026', 'FY 2027'],
+      yearBoards: GRANTS_YEAR_BOARDS,
       resetStatus: 'Not started',
       lockedCarry: _ROLLOVER_LOCKED_BASE,
       // FY/CY board boards drive the year; the ERPNext fiscal-year link isn't a
@@ -248,7 +250,6 @@ export function getNewProjectModalConfig({ moduleKey = null, currentView = '' } 
   if (key === 'grants') {
     // Smart Grants projects are grouped onto per-year boards. The create form lets the
     // user pick which year board the project belongs to (defaulting to the current year board).
-    const GRANTS_YEAR_BOARDS = ['FY 2024', 'FY 2025', 'FY 2026', 'FY 2027'];
     return {
       visibleFields: {
         company: true,
@@ -260,7 +261,7 @@ export function getNewProjectModalConfig({ moduleKey = null, currentView = '' } 
       requiredFields: ['project_name', 'customer', 'company', 'project_type'],
       projectTypeOptions: GRANTS_YEAR_BOARDS,
       defaultValues: {
-        project_type: 'FY 2026',
+        project_type: getCurrentGrantsYearBoard(),
         custom_project_frequency: 'One-off',
         // Smart Grants defaults to the "Top Grants" company (Smart Accounting uses
         // its own first company, typically "Top Figures").

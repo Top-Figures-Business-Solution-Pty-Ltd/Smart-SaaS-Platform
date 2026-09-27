@@ -4,6 +4,7 @@
  */
 import { AutomationService } from '../services/automationService.js';
 import { AutomationModal } from '../components/BoardView/AutomationModal.js';
+import { openAutomationHealthFlow } from './automationHealthController.js';
 import { notify } from '../services/uiAdapter.js';
 
 export async function openAutomationFlow({ moduleKey = '' } = {}) {
@@ -61,6 +62,7 @@ export async function openAutomationFlow({ moduleKey = '' } = {}) {
         await window.smart_accounting?.smart_board_instance?.openAutomationLogs?.(filters || {});
       } catch (e) {}
     },
+    onOpenHealth: () => openAutomationHealthFlow(),
   });
   modal.open();
 }

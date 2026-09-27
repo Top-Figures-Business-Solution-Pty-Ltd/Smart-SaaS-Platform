@@ -5,6 +5,8 @@ on:
   push:
     branches:
       - develop
+      - dev
+      - main
   pull_request:
 
 concurrency:

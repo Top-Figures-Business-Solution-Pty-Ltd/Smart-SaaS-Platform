@@ -9,11 +9,17 @@ import json
 import frappe
 from typing import Any
 from frappe.utils import today
+from smart_accounting.api.authz import ensure_admin_for_http_request, ensure_admin_like, ensure_logged_in
 
 
-def _ensure_logged_in():
-    if frappe.session.user == "Guest":
-        frappe.throw("Please log in", frappe.AuthenticationError)
+def _ensure_automation_admin() -> None:
+    ensure_admin_like()
+
+
+def _ensure_scheduler_request_allowed() -> None:
+    # Scheduler/bench calls do not have an HTTP request. If someone invokes these
+    # whitelisted methods through /api/method, require an admin-like role.
+    ensure_admin_for_http_request()
 
 
 def _parse_json(val):
@@ -309,7 +315,7 @@ def get_automation_meta(module: str | None = None) -> dict:
     When `module` ("accounting" / "grants") is given, only items available to
     that module are returned.
     """
-    _ensure_logged_in()
+    ensure_logged_in()
     status_pool = _get_project_status_pool()
     module_key = str(module or "").strip()
     trigger_catalog = _filter_meta_by_module(TRIGGER_TYPES, module_key)
@@ -351,7 +357,7 @@ def get_automation_meta(module: str | None = None) -> dict:
 
 @frappe.whitelist()
 def get_automations(limit_start: int = 0, limit_page_length: int = 50, search: str | None = None, module: str | None = None) -> dict:
-    _ensure_logged_in()
+    ensure_logged_in()
     module_key = str(module or "").strip()
     try:
         limit_start = max(0, int(limit_start or 0))
@@ -446,7 +452,7 @@ def save_automation(
     Create or update a Board Automation rule.
     actions: JSON array of [{action_type, config}]
     """
-    _ensure_logged_in()
+    _ensure_automation_admin()
     module_key = str(module or "").strip() or "accounting"
 
     trigger_type = str(trigger_type or "").strip()
@@ -590,6 +596,7 @@ def run_due_date_automations_daily() -> dict:
     - Loads candidate projects where at least one configured date field == today.
     - Executes actions once via CustomProject automation engine.
     """
+    _ensure_scheduler_request_allowed()
     autos = frappe.get_all(
         "Board Automation",
         filters={"enabled": 1},
@@ -656,6 +663,7 @@ def run_due_date_automations_hourly() -> dict:
     Hourly catch-up runner for date_reaches automations.
     Uses the same candidate and trigger semantics as daily runner.
     """
+    _ensure_scheduler_request_allowed()
     autos = frappe.get_all(
         "Board Automation",
         filters={"enabled": 1},
@@ -742,6 +750,7 @@ def run_grants_highlight_automations(event: str = "daily") -> dict:
     (Plan A) when it no longer does. No-op re-affirmations are skipped, so this is
     cheap to run repeatedly even when nothing changes.
     """
+    _ensure_scheduler_request_allowed()
     try:
         from smart_accounting.api.board_settings import SMART_GRANTS_BOARDS
     except Exception:
@@ -781,7 +790,7 @@ def run_grants_highlight_automations(event: str = "daily") -> dict:
 
 @frappe.whitelist()
 def toggle_automation(name: str, enabled: int = 1) -> dict:
-    _ensure_logged_in()
+    _ensure_automation_admin()
     name = str(name or "").strip()
     if not name or not frappe.db.exists("Board Automation", name):
         frappe.throw("Automation not found")
@@ -791,7 +800,7 @@ def toggle_automation(name: str, enabled: int = 1) -> dict:
 
 @frappe.whitelist()
 def delete_automation(name: str) -> dict:
-    _ensure_logged_in()
+    _ensure_automation_admin()
     name = str(name or "").strip()
     if not name or not frappe.db.exists("Board Automation", name):
         frappe.throw("Automation not found")

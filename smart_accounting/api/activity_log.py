@@ -395,6 +395,9 @@ def get_project_activity(project: str, limit_start: int = 0, limit_page_length: 
 				"automation_action_type": _clean_str(payload.get("automation_action_type")),
 				"archive_source": _clean_str(payload.get("archive_source")),
 				"archive_rule": _clean_str(payload.get("archive_rule")),
+				"batch_id": _clean_str(payload.get("batch_id")),
+				"batch_label": _clean_str(payload.get("batch_label")),
+				"batch_size": _normalize_int(payload.get("batch_size"), 0),
 				"undoable": is_project_activity_undo_field(field),
 				"user": user_name,
 				"user_label": _get_user_fullname(user_name, user_cache) or user_name or "Unknown",
@@ -542,4 +545,74 @@ def undo_project_activity(project: str, activity_name: str, expected_to_value: s
 	doc.set(field, _coerce_value_for_field(doc, field, from_value))
 	doc.save(ignore_permissions=True)
 	return {"ok": True, "field": field, "value": doc.get(field)}
+
+
+@frappe.whitelist()
+def undo_project_activity_batch(batch_id: str) -> dict:
+	"""
+	Undo every still-current scalar Project update in a bulk inline edit batch.
+	Rows that changed again after the batch are skipped, not overwritten.
+	"""
+	_ensure_logged_in()
+	bid = _clean_str(batch_id)
+	if not bid:
+		frappe.throw("batch_id is required")
+
+	rows = frappe.get_all(
+		"Comment",
+		filters={
+			"reference_doctype": "Project",
+			"comment_type": "Info",
+			"content": ["like", f"%{bid}%"],
+		},
+		fields=["name", "reference_name", "content"],
+		order_by="creation asc",
+		limit_page_length=5000,
+		ignore_permissions=True,
+	)
+
+	undone: list[str] = []
+	skipped: list[dict] = []
+	failed: list[dict] = []
+	seen: set[tuple[str, str, str]] = set()
+
+	for row in rows or []:
+		project = _clean_str(row.get("reference_name"))
+		payload = _parse_sb_activity_comment(row.get("content"))
+		if not project or not payload or _clean_str(payload.get("batch_id")) != bid:
+			continue
+		field = _clean_str(payload.get("field"))
+		if not is_project_activity_undo_field(field):
+			skipped.append({"project": project, "field": field, "reason": "not_undoable"})
+			continue
+		key = (project, field, _clean_str(row.get("name")))
+		if key in seen:
+			continue
+		seen.add(key)
+		if not frappe.has_permission("Project", "write", project):
+			skipped.append({"project": project, "field": field, "reason": "no_permission"})
+			continue
+		try:
+			doc = frappe.get_doc("Project", project)
+			current_value = doc.get(field)
+			if _norm_cmp(current_value) != _norm_cmp(payload.get("to_value")):
+				skipped.append({"project": project, "field": field, "reason": "changed_again"})
+				continue
+			doc.flags.skip_board_automation = True
+			doc.set(field, _coerce_value_for_field(doc, field, payload.get("from_value")))
+			doc.save(ignore_permissions=True)
+			undone.append(project)
+		except Exception as exc:
+			failed.append({"project": project, "field": field, "reason": str(exc)})
+
+	return {
+		"ok": not failed,
+		"batch_id": bid,
+		"undone": undone,
+		"undone_count": len(undone),
+		"skipped": skipped,
+		"skipped_count": len(skipped),
+		"failed": failed,
+		"failed_count": len(failed),
+	}
 

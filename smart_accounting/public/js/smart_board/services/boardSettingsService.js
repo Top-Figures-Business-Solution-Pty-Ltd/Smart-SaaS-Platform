@@ -75,6 +75,34 @@ export class BoardSettingsService {
       throw e;
     }
   }
+
+  static async getQuarterlyDueDateRules() {
+    try {
+      const r = await frappe.call({
+        method: 'smart_accounting.api.board_settings.get_quarterly_due_date_rules_api',
+        type: 'GET',
+        args: {},
+      });
+      return r?.message || { items: [], defaults: [] };
+    } catch (e) {
+      notify(`Failed to load quarterly due date rules: ${e?.message || String(e)}`, 'red');
+      throw e;
+    }
+  }
+
+  static async setQuarterlyDueDateRules(rules = []) {
+    try {
+      const r = await frappe.call({
+        method: 'smart_accounting.api.board_settings.set_quarterly_due_date_rules',
+        type: 'POST',
+        args: { rules: JSON.stringify(rules || []) },
+      });
+      return r?.message || { ok: true, items: rules || [] };
+    } catch (e) {
+      notify(`Failed to save quarterly due date rules: ${e?.message || String(e)}`, 'red');
+      throw e;
+    }
+  }
 }
 
 

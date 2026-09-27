@@ -12,6 +12,8 @@ app_email = "Jeffrey@topfigures.com.au"
 app_license = "mit"
 app_version = "2.1.0"
 
+from smart_accounting.config.smart_board import GRANTS_YEAR_BOARDS
+
 # Required apps
 # required_apps = []
 
@@ -88,13 +90,7 @@ fixtures = [
     {
         "doctype": "Project Type",
         "filters": [
-            ["name", "in", [
-                "FY 2024",
-                "FY 2025",
-                "FY 2026",
-                "FY 2027",
-                "Archived (Holding)"
-            ]]
+            ["name", "in", list(GRANTS_YEAR_BOARDS) + ["Archived (Holding)"]]
         ]
     },
     # Role permissions (customized via Role Permission Manager).
