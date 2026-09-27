@@ -41,8 +41,10 @@ export const STATUS_COLORS = {
     'R&D': '#06b6d4', // cyan
 
     // R&D workflow statuses (2026-04)
+    'Waiting for kickoff': '#f97316', // orange
     'Waiting for tech meeting': '#c084fc', // light purple
     'Waiting for tech evidence': '#a78bfa', // lavender
+    'Waiting for evidence review': '#8b5cf6', // violet
     'Preparing R&D report': '#0d9488', // teal
     'Waiting for report review and signature': '#7c3aed', // deep violet
     'Preparing application form': '#14b8a6', // mint teal
@@ -143,7 +145,7 @@ export const PROJECT_COLUMN_CATALOG = [
     { field: 'custom_grants_contact_name', label: 'Contact Name', width: 180 },
     { field: 'custom_grants_primary_communication', label: 'Primary Communication', width: 220 },
     { field: 'custom_grants_status', label: 'Application Progress', width: 180 },
-    { field: 'custom_tg_tax_agent', label: 'TG Tax Agent', width: 130 },
+    { field: 'custom_tg_tax_agent', label: 'Tax Agent', width: 130 },
     { field: 'custom_portal_access_received', label: 'Portal Access Received', width: 180 },
     { field: 'custom_portal_access_expiry_date', label: 'Portal Access Expiry', width: 180 },
     { field: 'custom_ap_submit_date', label: 'AP Submit Date', width: 140 },
@@ -233,7 +235,7 @@ function makeGrantsDefaultColumns() {
         { field: 'custom_grants_contact_name', label: 'Contact', width: 180 },
         { field: 'custom_grants_primary_communication', label: 'Communication', width: 220 },
         { field: 'custom_grants_status', label: 'Progress', width: 180 },
-        { field: 'custom_tg_tax_agent', label: 'TG Tax Agent', width: 130 },
+        { field: 'custom_tg_tax_agent', label: 'Tax Agent', width: 130 },
         { field: 'custom_portal_access_received', label: 'Portal Access Received', width: 180 },
         { field: 'custom_portal_access_expiry_date', label: 'Portal Access Expiry', width: 180 },
         { field: 'custom_ap_submit_date', label: 'AP Submit', width: 140 },

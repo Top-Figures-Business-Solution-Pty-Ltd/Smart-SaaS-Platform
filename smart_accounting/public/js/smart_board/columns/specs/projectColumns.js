@@ -99,6 +99,26 @@ function yesNoOptions() {
   ];
 }
 
+function tgTaxAgentOptions() {
+  return [
+    { value: 'TG - Yes', label: 'TG - Yes' },
+    { value: 'No', label: 'No' },
+  ];
+}
+
+function _normalizeTgTaxAgentValue(value) {
+  const s = String(value ?? '').trim();
+  const lower = s.toLowerCase();
+  if (!s || s === '0' || lower === 'no' || lower === 'false') return 'No';
+  return 'TG - Yes';
+}
+
+function _renderTgTaxAgentCell(value) {
+  const label = _normalizeTgTaxAgentValue(value);
+  const color = label === 'TG - Yes' ? '#16a34a' : '#94a3b8';
+  return `<span class="status-badge" style="background-color:${color};">${escapeHtml(label)}</span><span class="sb-afford sb-afford--select">▾</span>`;
+}
+
 // Canonical truthy check for Frappe Check fields.
 // Backend may return 0/1 (int), "0"/"1" (string), or null/undefined.
 function _isCheckYes(v) {
@@ -811,23 +831,23 @@ export function makeProjectColumnSpecs() {
       renderEditor: ({ cellEl, project, manager, field }) => projectFieldMenuEditor({ cellEl, project, manager, field })
     },
 
-    // Smart Grants Check columns: TG Tax Agent, Portal Access Received (2026-04)
-    // Backend stores int 0/1; UI surfaces them as Yes/No for accountants.
+    // Smart Grants Tax Agent select (migrated from Check in 2026-09).
     {
       field: 'custom_tg_tax_agent',
       isEditable: true,
-      renderCell: ({ project }) => _renderYesNoCell(project?.custom_tg_tax_agent),
+      renderCell: ({ project }) => _renderTgTaxAgentCell(project?.custom_tg_tax_agent),
       renderEditor: ({ cellEl, project, manager, field }) => {
         const contentEl = cellEl.querySelector('.cell-content') || cellEl;
-        const cur = _isCheckYes(project?.[field]) ? '1' : '0';
+        const cur = _normalizeTgTaxAgentValue(project?.[field]);
         const ed = new InlineSelectEditor(contentEl, {
-          options: yesNoOptions(),
+          options: tgTaxAgentOptions(),
           initialValue: cur,
         });
         mountEditorHelpers(manager, contentEl, ed);
         return ed;
       }
     },
+    // Smart Grants Check columns. Backend stores int 0/1; UI surfaces them as Yes/No.
     {
       field: 'custom_portal_access_received',
       isEditable: true,

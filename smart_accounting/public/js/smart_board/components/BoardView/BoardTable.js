@@ -1026,8 +1026,10 @@ export class BoardTable {
         if (field === 'status' && moduleKey === 'grants') {
             return [
                 'R&D workflow statuses (Smart Grants boards only):',
+                '- Waiting for kickoff',
                 '- Waiting for tech meeting',
                 '- Waiting for tech evidence',
+                '- Waiting for evidence review',
                 '- Preparing R&D report',
                 '- Waiting for report review and signature',
                 '- Preparing application form',

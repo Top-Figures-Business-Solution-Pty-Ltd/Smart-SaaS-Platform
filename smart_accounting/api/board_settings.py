@@ -102,8 +102,10 @@ SMART_GRANTS_BOARDS: set[str] = {
 GRANTS_STATUS_ORDER: list[str] = [
 	"Not started",
 	"Hold",
+	"Waiting for kickoff",
 	"Waiting for tech meeting",
 	"Waiting for tech evidence",
+	"Waiting for evidence review",
 	"Preparing R&D report",
 	"Waiting for report review and signature",
 	"Preparing application form",
@@ -120,8 +122,10 @@ GRANTS_STATUS_ORDER: list[str] = [
 
 _STATUS_PROJECT_TYPE_SCOPE: dict[str, set[str]] = {
 	# R&D workflow statuses (2026-04) — Smart Grants boards only
+	"Waiting for kickoff": SMART_GRANTS_BOARDS,
 	"Waiting for tech meeting": SMART_GRANTS_BOARDS,
 	"Waiting for tech evidence": SMART_GRANTS_BOARDS,
+	"Waiting for evidence review": SMART_GRANTS_BOARDS,
 	"Preparing R&D report": SMART_GRANTS_BOARDS,
 	"Waiting for report review and signature": SMART_GRANTS_BOARDS,
 	"Preparing application form": SMART_GRANTS_BOARDS,

@@ -200,6 +200,7 @@ export function getRollOverConfig({ moduleKey = null } = {}) {
         status: { mode: 'clear' },
         custom_grants_type: { type: 'select', options: ['R&DTI', 'EMDG'] },
         custom_grants_priority: { type: 'select', options: ['S1', 'S2', 'S3', 'S4'] },
+        custom_tg_tax_agent: { type: 'select', options: ['TG - Yes', 'No'] },
         custom_portal_access_received: { type: 'check' },
         custom_portal_access_expiry_date: { type: 'date' },
         custom_team_members: { type: 'none' },

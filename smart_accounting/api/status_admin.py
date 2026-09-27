@@ -18,8 +18,10 @@ def _status_pool() -> list[str]:
 		"Waiting for client",
 		"R&D",
 		# R&D workflow statuses (2026-04)
+		"Waiting for kickoff",
 		"Waiting for tech meeting",
 		"Waiting for tech evidence",
+		"Waiting for evidence review",
 		"Preparing R&D report",
 		"Waiting for report review and signature",
 		"Preparing application form",
