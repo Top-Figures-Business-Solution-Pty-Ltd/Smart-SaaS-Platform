@@ -11,7 +11,7 @@ from typing import Any
 import frappe
 from frappe.utils import getdate
 
-from smart_accounting.custom.project import is_project_activity_field, is_project_activity_undo_field
+from smart_accounting.project_activity import is_project_activity_field, is_project_activity_undo_field
 
 
 def _ensure_logged_in() -> None:

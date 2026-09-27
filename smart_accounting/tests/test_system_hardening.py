@@ -6,12 +6,14 @@ import frappe
 
 from smart_accounting.api.activity_log import undo_project_activity_batch
 from smart_accounting.api.automation_health import get_automation_health
+from smart_accounting.api.automation_logs import build_run_diagnosis
 from smart_accounting.api.authz import is_admin_like
 from smart_accounting.config.smart_board import (
 	GLOBAL_PROJECT_STATUS_POOL,
 	GRANTS_STATUS_ORDER,
 	GRANTS_YEAR_BOARDS,
 )
+from smart_accounting.project_activity import build_project_activity_changes, is_project_activity_field
 
 
 class TestSmartBoardConfig(FrappeTestCase):
@@ -40,3 +42,76 @@ class TestActivityBatchUndo(FrappeTestCase):
 class TestAutomationHealth(FrappeTestCase):
 	def test_automation_health_endpoint_is_importable(self):
 		self.assertTrue(callable(get_automation_health))
+
+
+class TestAutomationRunDiagnosis(FrappeTestCase):
+	def test_failed_run_diagnosis_prefers_error_details(self):
+		diag = build_run_diagnosis(
+			{
+				"result": "Failed",
+				"message": "Generic failure",
+				"error_details": "Lodgement Due Date is invalid",
+				"matched_triggers": "date_reaches",
+				"actions_attempted": "roll_due_date",
+			},
+			[],
+		)
+		self.assertEqual(diag["title"], "Automation failed")
+		self.assertEqual(diag["summary"], "Lodgement Due Date is invalid")
+		self.assertIn("Matched triggers: date_reaches", diag["details"])
+
+	def test_success_diagnosis_summarises_changed_fields(self):
+		diag = build_run_diagnosis(
+			{"result": "Success", "message": "Updated fields"},
+			[
+				{"fieldname": "status", "field_label": "Status"},
+				{"fieldname": "custom_lodgement_due_date", "field_label": "Lodgement Due Date"},
+			],
+		)
+		self.assertEqual(diag["title"], "Automation completed")
+		self.assertEqual(diag["summary"], "Updated Status, Lodgement Due Date")
+
+
+class TestProjectActivityHelpers(FrappeTestCase):
+	def test_custom_field_is_activity_field_with_meta(self):
+		class Field:
+			fieldtype = "Data"
+
+		self.assertTrue(is_project_activity_field("custom_engagement_date", Field()))
+
+	def test_build_project_activity_changes_keeps_batch_and_automation_metadata(self):
+		class Field:
+			fieldname = "custom_salesperson"
+			fieldtype = "Link"
+			label = "Salesperson"
+
+		class Meta:
+			fields = [Field()]
+
+		class Doc:
+			meta = Meta()
+			_sb_activity_batch_id = "batch-1"
+			_sb_activity_batch_label = "Bulk update"
+			_sb_activity_batch_size = 2
+			_sb_automation_field_meta = {
+				"custom_salesperson": {
+					"automation_name": "Assign salesperson",
+					"automation_run_id": "run-1",
+					"automation_action_type": "set_field",
+				}
+			}
+
+			def has_value_changed(self, fieldname):
+				return fieldname == "custom_salesperson"
+
+			def get(self, fieldname):
+				if fieldname == "custom_salesperson":
+					return "new@example.com"
+				return ""
+
+		rows = build_project_activity_changes(Doc(), {"custom_salesperson": "old@example.com"})
+		self.assertEqual(len(rows), 1)
+		self.assertEqual(rows[0]["field"], "custom_salesperson")
+		self.assertEqual(rows[0]["batch_id"], "batch-1")
+		self.assertEqual(rows[0]["change_source"], "automation")
+		self.assertEqual(rows[0]["automation_run_id"], "run-1")

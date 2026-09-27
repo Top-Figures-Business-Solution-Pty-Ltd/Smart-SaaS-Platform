@@ -9,6 +9,7 @@ import frappe
 from frappe.utils import add_to_date, now_datetime
 
 from smart_accounting.api.authz import ensure_admin_like
+from smart_accounting.api.automation_logs import build_run_diagnosis
 
 
 def _to_int(value: Any, default: int) -> int:
@@ -69,6 +70,10 @@ def get_automation_health(lookback_hours: int = 24, recent_limit: int = 10) -> d
 			"triggered_at",
 			"execution_source",
 			"result",
+			"message",
+			"error_details",
+			"matched_triggers",
+			"actions_attempted",
 			"changed_field_count",
 		],
 		order_by="triggered_at desc",
@@ -133,6 +138,8 @@ def get_automation_health(lookback_hours: int = 24, recent_limit: int = 10) -> d
 			"triggered_at": r.get("triggered_at"),
 			"execution_source": r.get("execution_source"),
 			"result": r.get("result"),
+			"message": r.get("message"),
+			"diagnosis": build_run_diagnosis(r, []),
 		}
 		for r in (run_rows or [])
 		if _clean(r.get("result")) in {"Failed", "Skipped"}

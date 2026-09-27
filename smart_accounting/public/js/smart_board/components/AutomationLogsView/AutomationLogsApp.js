@@ -316,6 +316,10 @@ export class AutomationLogsApp {
     const runId = _clean(row?.run_id || row?.name);
     const expanded = this._expanded.has(runId);
     const changes = Array.isArray(row?.changes) ? row.changes : [];
+    const diagnosis = row?.diagnosis && typeof row.diagnosis === 'object' ? row.diagnosis : {};
+    const diagnosisTitle = _clean(diagnosis?.title);
+    const diagnosisSummary = _clean(diagnosis?.summary);
+    const diagnosisDetails = Array.isArray(diagnosis?.details) ? diagnosis.details.map(_clean).filter(Boolean) : [];
     const changeRows = changes.map((ch) => {
       const field = _clean(ch?.field_label || ch?.fieldname);
       const from = _clean(ch?.from_value);
@@ -335,6 +339,13 @@ export class AutomationLogsApp {
         </div>
       `;
     }).join('');
+    const diagnosticHTML = `
+      <div class="sb-auto-logs__diagnosis" style="border:1px solid var(--border-color, #e5e7eb); border-radius:8px; padding:10px 12px; margin-bottom:10px; background:rgba(249,250,251,.65);">
+        <div style="font-weight:600; font-size:13px;">${escapeHtml(diagnosisTitle || 'Run diagnosis')}</div>
+        <div class="text-muted" style="font-size:12px; margin-top:4px;">${escapeHtml(diagnosisSummary || _clean(row?.message) || 'No summary was recorded.')}</div>
+        ${diagnosisDetails.length ? `<div style="display:flex; flex-direction:column; gap:3px; margin-top:8px;">${diagnosisDetails.map((x) => `<div class="text-muted" style="font-size:12px;">${escapeHtml(x)}</div>`).join('')}</div>` : ''}
+      </div>
+    `;
 
     return `
       <div class="sb-auto-logs__item">
@@ -355,7 +366,7 @@ export class AutomationLogsApp {
         <div class="sb-auto-logs__item-actions">
           <button type="button" class="btn btn-default btn-xs" data-action="open-project" data-project="${escapeHtml(_clean(row?.project))}" data-project-type="${escapeHtml(_clean(row?.project_type))}" data-project-title="${escapeHtml(_clean(row?.project_title))}">Open project</button>
         </div>
-        ${expanded ? `<div class="sb-auto-logs__details">${changeRows || '<div class="text-muted" style="font-size:12px;">No field changes recorded.</div>'}</div>` : ''}
+        ${expanded ? `<div class="sb-auto-logs__details">${diagnosticHTML}${changeRows || '<div class="text-muted" style="font-size:12px;">No field changes recorded.</div>'}</div>` : ''}
       </div>
     `;
   }

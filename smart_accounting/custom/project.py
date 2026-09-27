@@ -8,6 +8,7 @@ import json
 import frappe
 from frappe.utils import getdate, add_months, add_days, get_last_day
 from erpnext.projects.doctype.project.project import Project
+from smart_accounting import project_activity as project_activity_utils
 from smart_accounting.api.notification_delivery import (
     create_in_app_notifications,
     get_enabled_notification_recipients,
@@ -1085,63 +1086,7 @@ class CustomProject(Project):
         before = getattr(self, "_sb_activity_before", None) or {}
         if not isinstance(before, dict):
             before = {}
-        out = []
-        for f in (self.meta.fields or []):
-            fieldname = str(getattr(f, "fieldname", "") or "").strip()
-            fieldtype = str(getattr(f, "fieldtype", "") or "").strip()
-            if not fieldname:
-                continue
-            if not is_project_activity_field(fieldname, f):
-                continue
-            label = str(getattr(f, "label", "") or fieldname)
-            try:
-                if not self.has_value_changed(fieldname):
-                    continue
-            except Exception:
-                pass
-
-            old_raw = before.get(fieldname)
-            new_raw = self.get(fieldname)
-            if fieldtype in {"Table", "Table MultiSelect"}:
-                old_v = _table_summary(fieldname, old_raw)
-                new_v = _table_summary(fieldname, new_raw)
-            else:
-                old_v = _short_text(_value_to_text(old_raw))
-                new_v = _short_text(_value_to_text(new_raw))
-            if old_v == new_v:
-                continue
-            row = {
-                "field": fieldname,
-                "field_label": label,
-                "from_value": old_v,
-                "to_value": new_v,
-            }
-            if fieldname == "is_active":
-                old_s = str(old_v or "").strip().lower()
-                new_s = str(new_v or "").strip().lower()
-                if old_s == "yes" and new_s == "no":
-                    source = str(getattr(self, "_sb_archive_source", "") or "manual").strip() or "manual"
-                    row["archive_source"] = source
-                    if source == "automation":
-                        row["archive_rule"] = str(getattr(self, "_sb_archive_rule", "") or "").strip()
-                elif old_s == "no" and new_s == "yes":
-                    row["archive_source"] = "restore"
-            field_meta = (getattr(self, "_sb_automation_field_meta", None) or {}).get(fieldname)
-            if isinstance(field_meta, dict):
-                row["change_source"] = "automation"
-                row["automation_name"] = str(field_meta.get("automation_name") or "").strip()
-                row["automation_run_id"] = str(field_meta.get("automation_run_id") or "").strip()
-                row["automation_action_type"] = str(field_meta.get("automation_action_type") or "").strip()
-            batch_id = str(getattr(self, "_sb_activity_batch_id", "") or "").strip()
-            if batch_id:
-                row["batch_id"] = batch_id
-                row["batch_label"] = str(getattr(self, "_sb_activity_batch_label", "") or "").strip()
-                try:
-                    row["batch_size"] = int(getattr(self, "_sb_activity_batch_size", 0) or 0)
-                except Exception:
-                    row["batch_size"] = 0
-            out.append(row)
-        self._sb_activity_changes = out
+        self._sb_activity_changes = project_activity_utils.build_project_activity_changes(self, before)
 
     def _write_activity_comments(self):
         changes = getattr(self, "_sb_activity_changes", None)
@@ -1574,188 +1519,25 @@ def _describe_automation_actions(auto) -> str:
     return ", ".join(labels[:10])
 
 
-_AUDIT_SKIP_FIELDS = {
-    "modified",
-    "modified_by",
-    "creation",
-    "owner",
-    "idx",
-    "_user_tags",
-    "_comments",
-    "_assign",
-    "_liked_by",
-    # Internal Smart Board/system helpers, not user-facing activity rows.
-    "custom_archive_source",
-    "custom_archive_source_ref",
-    "custom_board_row_highlight",
-}
-
-_AUDIT_STANDARD_BOARD_FIELDS = {
-    # Project identity/workflow fields that Smart Accounting/Grants expose as board columns.
-    # Future Custom Fields are handled dynamically by the `custom_` prefix check below;
-    # ERPNext standard fields are opt-in so calculated timesheet/cost rollup fields stay hidden.
-    "customer",
-    "project_name",
-    "status",
-    "notes",
-    "project_type",
-    "company",
-    "priority",
-    "expected_start_date",
-    "expected_end_date",
-    "estimated_costing",
-    "is_active",
-}
-
-_AUDIT_SKIP_FIELDTYPES = {
-    "Section Break",
-    "Column Break",
-    "Tab Break",
-    "Fold",
-    "HTML",
-    "Button",
-}
-
-_AUDIT_UNDO_SKIP_FIELDTYPES = {
-    *_AUDIT_SKIP_FIELDTYPES,
-    "Table",
-    "Table MultiSelect",
-}
-
-
 def _get_project_meta_field(fieldname: str):
-    try:
-        return frappe.get_meta("Project").get_field(fieldname)
-    except Exception:
-        return None
+    return project_activity_utils.get_project_meta_field(fieldname)
 
 
 def is_project_activity_field(fieldname: str, meta_field=None) -> bool:
-    """
-    Dynamic activity boundary for Smart Accounting/Grants board fields.
-
-    Record Smart Board-facing Project fields without maintaining a per-column
-    list for every custom field:
-    - Custom Fields (`custom_*`) are included automatically.
-    - ERPNext standard fields are opt-in, because Project has many calculated
-      timesheet/cost fields that change as side effects and should not appear
-      in Last Updated.
-    - System/layout fields are always excluded.
-    """
-    fn = str(fieldname or "").strip()
-    if not fn or fn in _AUDIT_SKIP_FIELDS:
-        return False
-    df = meta_field or _get_project_meta_field(fn)
-    if not df:
-        return False
-    fieldtype = str(getattr(df, "fieldtype", "") or "").strip()
-    if fieldtype in _AUDIT_SKIP_FIELDTYPES:
-        return False
-    if not (fn.startswith("custom_") or fn in _AUDIT_STANDARD_BOARD_FIELDS):
-        return False
-    return True
+    return project_activity_utils.is_project_activity_field(fieldname, meta_field)
 
 
 def is_project_activity_undo_field(fieldname: str) -> bool:
-    fn = str(fieldname or "").strip()
-    if not is_project_activity_field(fn):
-        return False
-    df = _get_project_meta_field(fn)
-    fieldtype = str(getattr(df, "fieldtype", "") or "").strip()
-    if fieldtype in _AUDIT_UNDO_SKIP_FIELDTYPES:
-        return False
-    if bool(getattr(df, "read_only", 0)):
-        return False
-    return True
+    return project_activity_utils.is_project_activity_undo_field(fieldname)
 
 
 def _short_text(v: str, max_len: int = 180) -> str:
-    s = str(v or "").strip()
-    if len(s) <= max_len:
-        return s
-    return f"{s[: max_len - 3]}..."
+    return project_activity_utils.short_text(v, max_len=max_len)
 
 
 def _value_to_text(v) -> str:
-    if v is None:
-        return ""
-    if isinstance(v, str):
-        return v.strip()
-    if isinstance(v, (int, float)):
-        return str(v)
-    if isinstance(v, (list, tuple)):
-        return ", ".join([_value_to_text(x) for x in v if _value_to_text(x)])
-    if isinstance(v, dict):
-        try:
-            return json.dumps(v, ensure_ascii=False, sort_keys=True)
-        except Exception:
-            return str(v)
-    return str(v).strip()
+    return project_activity_utils.value_to_text(v)
 
 
 def _table_summary(fieldname: str, rows) -> str:
-    arr = rows if isinstance(rows, list) else []
-    if fieldname == "custom_team_members":
-        # role:user list, stable order
-        role_map = {}
-        for r in arr:
-            if not isinstance(r, dict):
-                try:
-                    r = r.as_dict()
-                except Exception:
-                    r = {}
-            role = str(r.get("role") or "").strip()
-            user = str(r.get("user") or "").strip()
-            if not role and not user:
-                continue
-            key = role or "(no role)"
-            role_map.setdefault(key, [])
-            if user:
-                role_map[key].append(user)
-        parts = []
-        for role in sorted(role_map.keys()):
-            users = sorted(set([u for u in role_map[role] if u]))
-            parts.append(f"{role}: {', '.join(users)}" if users else role)
-        return " | ".join(parts)
-    if fieldname == "custom_softwares":
-        vals = []
-        for r in arr:
-            if not isinstance(r, dict):
-                try:
-                    r = r.as_dict()
-                except Exception:
-                    # Fallback for values already represented as strings.
-                    v0 = str(r or "").strip()
-                    if v0:
-                        vals.append(v0)
-                    continue
-            v = str(r.get("software") or r.get("software_name") or r.get("name") or "").strip()
-            if v:
-                vals.append(v)
-        vals = sorted(set(vals))
-        return ", ".join(vals)
-    # Generic table fallback: normalized row count + key data preview
-    cleaned = []
-    for r in arr:
-        if not isinstance(r, dict):
-            try:
-                r = r.as_dict()
-            except Exception:
-                r = {}
-        row = {}
-        for k, v in (r or {}).items():
-            key = str(k or "").strip()
-            if not key or key in {"name", "parent", "parenttype", "parentfield", "idx", "owner", "creation", "modified", "modified_by", "docstatus", "doctype"}:
-                continue
-            txt = _value_to_text(v)
-            if txt:
-                row[key] = txt
-        if row:
-            cleaned.append(row)
-    cleaned.sort(key=lambda x: json.dumps(x, sort_keys=True, ensure_ascii=False))
-    if not cleaned:
-        return ""
-    try:
-        return _short_text(json.dumps(cleaned, ensure_ascii=False, sort_keys=True), max_len=300)
-    except Exception:
-        return _short_text(str(cleaned), max_len=300)
+    return project_activity_utils.table_summary(fieldname, rows)

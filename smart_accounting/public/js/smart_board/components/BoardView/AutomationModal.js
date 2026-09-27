@@ -581,7 +581,8 @@ export class AutomationModal {
       const project = String(row?.project_title || row?.project || '').trim();
       const projectName = String(row?.project || '').trim();
       const projectType = String(row?.project_type || '').trim();
-      const message = String(row?.message || '').trim();
+      const diagnosis = row?.diagnosis && typeof row.diagnosis === 'object' ? row.diagnosis : {};
+      const message = String(diagnosis?.summary || row?.message || '').trim();
       const changed = Number(row?.changed_field_count || 0);
       const when = String(row?.triggered_at || '').replace('T', ' ').slice(0, 19);
       return `

@@ -42,6 +42,20 @@ function resultSummary(resultCounts) {
   `;
 }
 
+function problemItem(x) {
+  const diagnosis = x?.diagnosis && typeof x.diagnosis === 'object' ? x.diagnosis : {};
+  const summary = String(diagnosis?.summary || x?.message || '').trim();
+  const title = String(diagnosis?.title || x?.result || 'Problem').trim();
+  return `
+    <div style="font-size:12px; border-bottom:1px solid var(--border-color, #e5e7eb); padding-bottom:6px;">
+      <strong>${escapeHtml(title)}</strong> · ${escapeHtml(formatDate(x?.triggered_at) || String(x?.triggered_at || ''))}
+      <br />
+      <span class="text-muted">${escapeHtml(x?.automation_name || x?.automation || '')}${x?.project ? ` · ${escapeHtml(x.project)}` : ''}</span>
+      ${summary ? `<div class="text-muted" style="margin-top:3px;">${escapeHtml(summary)}</div>` : ''}
+    </div>
+  `;
+}
+
 export class AutomationHealthModal {
   constructor({ health } = {}) {
     this.health = health || {};
@@ -75,7 +89,7 @@ export class AutomationHealthModal {
           </div>
           <div>
             <div style="font-weight:600; margin-bottom:8px;">Recent problems</div>
-            ${listItems(h.recent_problems, (x) => `<div style="font-size:12px; border-bottom:1px solid var(--border-color, #e5e7eb); padding-bottom:6px;"><strong>${escapeHtml(x?.result || '')}</strong> · ${escapeHtml(formatDate(x?.triggered_at) || String(x?.triggered_at || ''))}<br /><span class="text-muted">${escapeHtml(x?.automation_name || x?.automation || '')}${x?.project ? ` · ${escapeHtml(x.project)}` : ''}</span></div>`)}
+            ${listItems(h.recent_problems, problemItem)}
           </div>
         </div>
       </div>

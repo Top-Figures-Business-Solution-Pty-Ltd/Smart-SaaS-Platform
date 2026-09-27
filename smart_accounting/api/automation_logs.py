@@ -25,6 +25,63 @@ def _clean(v: Any) -> str:
 	return str(v or "").strip()
 
 
+def _join_non_empty(parts: list[str], sep: str = " · ") -> str:
+	return sep.join([p for p in parts if _clean(p)])
+
+
+def build_run_diagnosis(row: dict[str, Any] | None, changes: list[dict[str, Any]] | None = None) -> dict:
+	"""Build a small human-readable diagnosis from existing run-log fields."""
+	r = row or {}
+	result = _clean(r.get("result")) or "Unknown"
+	message = _clean(r.get("message"))
+	error_details = _clean(r.get("error_details"))
+	triggers = _clean(r.get("matched_triggers"))
+	actions = _clean(r.get("actions_attempted"))
+	change_rows = changes if isinstance(changes, list) else []
+	changed_fields = []
+	for ch in change_rows:
+		if not isinstance(ch, dict):
+			continue
+		label = _clean(ch.get("field_label")) or _clean(ch.get("fieldname"))
+		if label and label not in changed_fields:
+			changed_fields.append(label)
+
+	if result == "Failed":
+		title = "Automation failed"
+		summary = error_details or message or "The automation stopped with an error."
+	elif result == "Skipped":
+		title = "Automation skipped"
+		summary = message or "The automation was skipped before changing the project."
+	elif result == "No Change":
+		title = "No project changes"
+		summary = message or "The automation matched but no field needed to change."
+	elif result == "Success":
+		title = "Automation completed"
+		if changed_fields:
+			summary = f"Updated {', '.join(changed_fields[:3])}{', ...' if len(changed_fields) > 3 else ''}"
+		else:
+			summary = message or "The automation completed successfully."
+	else:
+		title = "Automation run"
+		summary = message or "No summary was recorded."
+
+	details = []
+	if triggers:
+		details.append(f"Matched triggers: {triggers}")
+	if actions:
+		details.append(f"Actions attempted: {actions}")
+	if changed_fields:
+		details.append(f"Changed fields: {', '.join(changed_fields[:8])}")
+	if error_details and error_details != summary:
+		details.append(f"Error details: {error_details}")
+
+	return {
+		"title": title,
+		"summary": summary,
+		"details": details,
+	}
+
+
 @frappe.whitelist()
 def get_automation_run_logs(
 	automation: str | None = None,
@@ -85,7 +142,10 @@ def get_automation_run_logs(
 			"triggered_at",
 			"execution_source",
 			"result",
+			"matched_triggers",
+			"actions_attempted",
 			"message",
+			"error_details",
 			"changed_field_count",
 		],
 		order_by="triggered_at desc, creation desc",
@@ -105,7 +165,7 @@ def get_automation_run_logs(
 			limit_page_length=20,
 			ignore_permissions=True,
 		) if log_name else []
-		items.append({**row, "changes": changes or []})
+		items.append({**row, "changes": changes or [], "diagnosis": build_run_diagnosis(row, changes or [])})
 
 	total_rows = frappe.get_all(
 		"Automation Run Log",
