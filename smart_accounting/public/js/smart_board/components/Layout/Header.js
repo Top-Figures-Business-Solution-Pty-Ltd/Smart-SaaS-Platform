@@ -80,6 +80,7 @@ export class Header {
             'users': 'Users',
             'archived-clients': 'Archived Clients',
             'automation-logs': 'Automation Logs',
+            'quality': 'Quality',
             'activity': 'Activity Log',
             'settings': 'Settings',
             'client-projects': 'Client Projects',
@@ -113,6 +114,9 @@ export class Header {
         }
         if (this.currentView === 'archived-projects') {
             return `Archived projects in ${moduleLabel}.`;
+        }
+        if (this.currentView === 'quality') {
+            return `Data quality checks for ${moduleLabel}.`;
         }
         return '';
     }

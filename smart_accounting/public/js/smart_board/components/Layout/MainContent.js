@@ -12,6 +12,7 @@ import { AutomationLogsApp } from '../AutomationLogsView/AutomationLogsApp.js';
 import { SettingsApp } from '../SettingsView/SettingsApp.js';
 import { ReportApp } from '../ReportView/ReportApp.js';
 import { UsersApp } from '../UsersView/UsersApp.js';
+import { DataQualityApp } from '../QualityView/DataQualityApp.js';
 import { openNewProjectFlow } from '../../controllers/newProjectController.js';
 
 const PRODUCT_APP_KEYS = [
@@ -23,6 +24,7 @@ const PRODUCT_APP_KEYS = [
     '_settingsApp',
     '_reportApp',
     '_usersApp',
+    '_dataQualityApp',
 ];
 
 export class MainContent {
@@ -42,6 +44,7 @@ export class MainContent {
         this._settingsApp = null;
         this._reportApp = null;
         this._usersApp = null;
+        this._dataQualityApp = null;
         
         this.render();
 
@@ -148,7 +151,7 @@ export class MainContent {
         this.currentView = view;
 
         // Non-board views should not show the projects table
-        if (view === 'clients' || view === 'users' || view === 'client-projects' || view === 'status-projects' || view === 'archived-clients' || view === 'activity' || view === 'automation-logs' || view === 'settings' || view === 'report' || isPlaceholderView(view)) {
+        if (view === 'clients' || view === 'users' || view === 'client-projects' || view === 'status-projects' || view === 'archived-clients' || view === 'activity' || view === 'automation-logs' || view === 'settings' || view === 'report' || view === 'quality' || isPlaceholderView(view)) {
             this.showPlaceholder(view);
             return;
         }
@@ -301,6 +304,11 @@ export class MainContent {
                 mountId: 'sbReportMount',
                 appKey: '_reportApp',
                 create: (mount) => new ReportApp(mount, { app: this.options?.app }),
+            },
+            'quality': {
+                mountId: 'sbDataQualityMount',
+                appKey: '_dataQualityApp',
+                create: (mount) => new DataQualityApp(mount, { app: this.options?.app }),
             },
         };
     }

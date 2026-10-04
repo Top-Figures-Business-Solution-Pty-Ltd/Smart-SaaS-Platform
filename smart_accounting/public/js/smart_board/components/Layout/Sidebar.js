@@ -4,6 +4,7 @@
  */
 
 import { renderIcon } from '../../utils/iconUtils.js';
+import { isAdminLike } from '../../utils/authz.js';
 
 export class Sidebar {
     constructor(container, options = {}) {
@@ -74,6 +75,14 @@ export class Sidebar {
                 <a href="#" class="nav-item" data-view="automation-logs">
                     ${this._iconMarkup('es-line-zap')}
                     <span class="nav-label">Automation Logs</span>
+                </a>
+            `);
+        }
+        if (isAdminLike() && canSee('quality')) {
+            otherItems.push(`
+                <a href="#" class="nav-item" data-view="quality">
+                    ${this._iconMarkup('es-line-review')}
+                    <span class="nav-label">Quality</span>
                 </a>
             `);
         }
@@ -196,6 +205,7 @@ export class Sidebar {
     _isViewVisible(view) {
         const v = String(view || '').trim();
         if (!v) return false;
+        if (v === 'quality') return isAdminLike();
         if (!Array.isArray(this.allowedViews)) return true;
         return this.allowedViews.includes(v);
     }

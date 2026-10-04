@@ -28,6 +28,7 @@ import {
     createTransientBoardEntryFilterReset,
 } from './utils/filterState.js';
 import { filterProjectColumnsForModule } from './utils/moduleConfig.js';
+import { isAdminLike } from './utils/authz.js';
 
 export class SmartBoardApp {
     constructor(container) {
@@ -78,6 +79,7 @@ export class SmartBoardApp {
     _isConfiguredProductViewAllowed(viewType) {
         const view = String(viewType || '').trim();
         if (!view) return false;
+        if (view === 'quality') return isAdminLike();
         if (this.allowedViews === null) return true;
         return this.allowedViews.includes(view);
     }

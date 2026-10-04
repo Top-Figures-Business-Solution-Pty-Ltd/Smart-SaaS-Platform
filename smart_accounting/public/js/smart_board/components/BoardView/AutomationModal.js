@@ -248,7 +248,9 @@ export class AutomationModal {
         <div class="sb-auto__special-list">
           ${items}
         </div>
-        <button class="btn btn-default btn-xs sb-auto__health-open" type="button" style="margin-top:10px;">Health check</button>
+        <div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:10px;">
+          <button class="btn btn-default btn-xs sb-auto__health-open" type="button">Health check</button>
+        </div>
       </div>
     `;
   }

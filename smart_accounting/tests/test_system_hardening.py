@@ -8,6 +8,7 @@ from smart_accounting.api.activity_log import undo_project_activity_batch
 from smart_accounting.api.automation_health import get_automation_health
 from smart_accounting.api.automation_logs import build_run_diagnosis
 from smart_accounting.api.authz import is_admin_like
+from smart_accounting.api.data_quality import _summary, get_data_quality_report
 from smart_accounting.config.smart_board import (
 	GLOBAL_PROJECT_STATUS_POOL,
 	GRANTS_STATUS_ORDER,
@@ -42,6 +43,23 @@ class TestActivityBatchUndo(FrappeTestCase):
 class TestAutomationHealth(FrappeTestCase):
 	def test_automation_health_endpoint_is_importable(self):
 		self.assertTrue(callable(get_automation_health))
+
+
+class TestDataQuality(FrappeTestCase):
+	def test_data_quality_endpoint_is_importable(self):
+		self.assertTrue(callable(get_data_quality_report))
+
+	def test_data_quality_summary_counts_by_severity(self):
+		self.assertEqual(
+			_summary(
+				[
+					{"severity": "critical", "count": 2},
+					{"severity": "warning", "count": 3},
+					{"severity": "notice", "count": 1},
+				]
+			),
+			{"critical": 2, "warning": 3, "notice": 1, "total": 6},
+		)
 
 
 class TestAutomationRunDiagnosis(FrappeTestCase):
