@@ -221,7 +221,7 @@ Settings 里现在能用的是 My Profile 和 Change Password。Personal Prefere
 | `custom_lodgeit_status` | Select | 同上 | LodgeIT 状态 |
 | `custom_company_agent_status` | Select | 同上 | Company Agent 状态 |
 | `custom_xeroquickbooks_status` | Select | 同上 | Xero/QuickBooks 状态 |
-| `custom_archive_source` | Select | Manual、Automation、Client Archive | 谁把它归档的 |
+| `custom_archive_source` | Select | Manual、Automation、Client Archive。删看板时另写 Type Deleted | 谁把它归档的 |
 | `custom_archive_source_ref` | Data |  | 归档来源的补充引用 |
 
 十二个月完成情况不是 `Project` 上的一个字段。看板用一个虚拟列去读 `Monthly Status`：某张单据（通常是这个 `Project`）、某个 `Fiscal Year`、某个月（`month_index`）一条状态。状态下拉是 Not Started、Working On It、Stuck、Done。
@@ -488,6 +488,139 @@ Automation Logs 页面给用户看这些运行记录。
 - `Customer.custom_referred_by` 和 Contact 上的推荐人、社交账号字段已经加在单据上，客户页的新建和编辑没有把它们当成主要操作
 - Grants 的 AP 提交、行业批准、报税这三个字段类型是 Data，不是 Date
 - 活动记录这个视图能打开，当前左侧导航没有单独一项
+
+## 16. 主要流程
+
+工作看板只列出 `is_active = Yes` 的项目。Archived Projects 只列出 `is_active = No` 的项目。
+
+### 新建客户
+
+1. 客户名称必填，且不能与已有 `Customer.customer_name` 或单据名重复。
+2. 未填客户类型时按 Individual 写入，再转成 ERPNext 允许的值。
+3. 未填客户分组、地区时，分别使用 All Customer Groups、All Territories。
+4. 若同时提交主实体，实体名称和实体类型都要有，年结必填。该行写入 `Customer.custom_entities`，`is_primary = 1`。
+5. 负责合伙人写入 `Customer.custom_partner`。
+
+没有客户写权限时不能保存。
+
+### 归档客户与恢复客户
+
+归档需要对该 `Customer` 有写权限。
+
+1. `Customer.disabled` 设为 1。
+2. 该客户下所有 `is_active = Yes`、且当前用户有写权限的项目改为 `is_active = No`。
+3. 这些项目的 `custom_archive_source` 写 Client Archive，`custom_archive_source_ref` 写客户单据名。
+4. 这一步不跑看板自动化。没有写权限的项目跳过，不中断其余项目。
+
+恢复同样需要写权限。
+
+1. `Customer.disabled` 设回 0。
+2. 只恢复同时满足这三项的项目：属于该客户、`is_active = No`、`custom_archive_source = Client Archive` 且 `custom_archive_source_ref` 是该客户。
+3. 恢复后 `is_active = Yes`，归档来源两个字段清空。不跑看板自动化。
+
+手动归档或自动化归档的项目，不会因为恢复客户而被打开。
+
+### 删除客户
+
+需要 `Customer` 删除权限。只要还有任意 `Project.customer` 指向该客户，就拒绝删除，并返回关联项目数量。没有关联项目时删除这张 `Customer`。
+
+### 新建项目
+
+创建接口接受的字段只有：`project_name`、`customer`、`company`、`custom_fiscal_year`、`project_type`、`custom_grants_fy_label`、`custom_project_frequency`、`custom_year_end`、`custom_target_month`、`status`、`priority`。
+
+页面上的必填项：
+
+- Accounting：项目名称、客户、公司、财年、项目类型。
+- Grants：项目名称、客户、公司、项目类型。项目类型只能是 FY 2024 到 FY 2027。公司默认 Top Grants，频率默认 One-off。
+
+保存前和保存时：
+
+1. 未登录、数据不是对象、项目名称为空，直接失败。
+2. `project_name` 已存在则失败，不创建第二张。
+3. 没有 `Project` 创建权限则失败。
+4. `customer` 可以传客户单据名。若传的是客户显示名，且只匹配到一个 `Customer`，则改写成单据名。匹配到多个则失败。
+5. `custom_year_end` 为空，或只是字段默认值时，从所链接的 `Customer Entity.year_end` 带入；没有链接实体时，从该客户的主实体带入，并写上 `custom_customer_entity`。
+6. 团队里还没有带用户的 Partner 时，用 `Customer.custom_partner` 补一行，角色 Partner，分配日期为当天。
+7. `status` 不在当前状态下拉里时，改为 Not started；池子里没有这一项则用第一项。ERPNext 计算完成百分比时不会把状态改回 Open。
+
+校验失败时不留下半张项目。成功后返回新建的 `Project`。
+
+### 归档项目
+
+在工作看板上勾选项目，确认后把 `is_active` 写成 No。这些行从当前看板消失，出现在 Archived Projects。
+
+保存时若没有另行标明来源，`custom_archive_source` 写 Manual，`custom_archive_source_ref` 清空。这条保存会跑看板自动化。
+
+另外两种归档不走这个按钮：
+
+- 自动化动作 Archive project：`is_active = No`，来源 Automation，引用写规则名称。
+- Roll over 时勾选归档原项目：来源 Manual，并且不跑看板自动化。
+
+### 恢复项目
+
+只在 Archived Projects 里操作。确认后把 `is_active` 写成 Yes，并清空 `custom_archive_source`、`custom_archive_source_ref`。恢复后的行离开归档列表。
+
+`project_type` 为 Archived (Holding) 的项目不能直接回到原看板。系统先要求为每一行另选一块当前模块里存在的看板，选中的类型写入 `project_type`，然后再恢复。取消选择则整批都不恢复。
+
+### 删除看板
+
+删除一条 `Project Type` 时：
+
+1. 仍挂在这块看板上的项目改到 `project_type = Archived (Holding)`，`is_active = No`。
+2. `custom_archive_source` 写 Type Deleted，`custom_archive_source_ref` 写被删看板的名称。
+3. 指向这块看板的 `Board Automation` 删除。`Project Template` 上的项目类型清空。
+4. Archived (Holding) 自身不会被挪走，也不会按这个流程删掉。
+
+这次改写用数据库直接更新，不跑项目保存上的自动化。
+
+### Roll over
+
+在工作看板上勾选项目后打开。Grants 和 Accounting 都可用。
+
+目标看板：
+
+- Grants 默认下一年。当前看板名里有四位年份，且下一年的看板在 FY 2024 到 FY 2027 之中，就用那一块；否则用另一块财年看板。
+- Accounting 默认留在当前看板。可选目标来自当前模块允许的 `Project Type`。
+
+每一列可以带走、清空，或设成新值。日期列还可以选择加一年。Accounting 的财年默认加一年：取结束日次日开始的那个 `Fiscal Year`，没有则取开始日更晚的下一张。
+
+系统固定处理，不进入带走或清空：
+
+| 字段 | 结果 |
+| --- | --- |
+| `customer`、`company` | 原值抄到新项目 |
+| `custom_fiscal_year` | 先抄原值；若选择财年加一且用户没有另设，则改成下一财年 |
+| `project_type` | 目标看板 |
+| `status` | 新项目写成 Not started。界面上这一列默认是清空 |
+| `project_name` | 重新命名 |
+| `is_active` | 不抄 |
+
+新名称先去掉原名称末尾的财年或 `(Roll Over)` 标记，再加后缀。后缀优先用用户填写的；没有则在看板变了时用目标看板名，财年变了时用新财年，否则用 `(Roll Over)`。名称仍冲突时，在括号里从 2 开始递增。
+
+团队和软件只有在用户选择带走时才复制。团队行的分配日期改为当天，空角色写成 Preparer。
+
+用户选择清空的字段在插入后仍保持空，不用单据默认值填回去。年结若被带走或被设成新值，创建时不再从客户实体覆盖。
+
+源项目必须可读。新项目按正常创建权限插入。某一行失败不影响其他行。只有生成了副本、且用户勾了归档原项目时，才把对应源项目设为 `is_active = No`，来源 Manual，不跑自动化。
+
+### 删除项目
+
+确认文案说明会连同任务一起删除，且不能撤销。需要该 `Project` 的删除权限。
+
+1. 先删挂在该项目上的 `Task`。默认连同 `parent_task` 下面的子任务，先删子任务再删父任务。删任务前先删它的 `Monthly Status`。任一任务删不掉则停止，项目保留。
+2. 再删指向该项目的 `Auto Repeat`。删不掉则停止，项目保留。
+3. 再删指向该项目的 `Monthly Status`。
+4. 最后删 `Project`。若仍被其他单据引用，删除失败，项目保留。
+
+### 撤销项目修改
+
+项目保存时，看板字段的前后值写成 `Comment`，`comment_type = Info`，内容以 `SB_ACTIVITY::` 开头。
+
+可以撤销的是：`custom_` 字段，以及 `customer`、`project_name`、`status`、`notes`、`project_type`、`company`、`priority`、`expected_start_date`、`expected_end_date`、`estimated_costing`、`is_active`。字段必须不是只读，也不是子表。`custom_archive_source`、`custom_archive_source_ref`、`custom_board_row_highlight` 不记入可撤销记录。
+
+撤销需要该项目的写权限。当前值必须仍等于当时改成的值，否则拒绝，不覆盖后来的修改。写回旧值时不跑看板自动化。
+
+批量撤销按同一次修改的批次处理。不能撤销、没有写权限、或字段已被再改过的行跳过，其余行继续写回。
 
 ---
 
