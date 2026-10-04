@@ -1,11 +1,7 @@
 # New System Doc
 
-这份文档分两大部分。
-
-- **第一部分**记录当前 Smart System 已经有的功能，写到用了 ERPNext 的哪张单据、哪个字段，以及用户能做的操作。它用来对照，不拿它决定新系统的结构。
-- **第二部分**写新系统要做什么。目前只收了你记下的大方向，没展开成完整需求。
-
-字段以应用里导出的 Custom Field、自建 DocType，以及仍在代码里使用的补丁字段为准。站点上如果还有人手改过、但没有导出的字段，这里不会出现。
+- **第一部分**是当前 Smart System：所用 ERPNext DocType、Custom Field，以及用户操作。
+- **第二部分**是新系统方向。
 
 ---
 
@@ -253,13 +249,13 @@ Grants 自定义字段都在 `Project` 上：
 | 字段 | 类型 | 指向或选项 | 含义 |
 | --- | --- | --- | --- |
 | `custom_grants_fy_label` | Data |  | FY/CY 文字 |
-| `custom_engagement_date` | Date |  | 签约月份。这个字段由补丁创建，不一定出现在已导出的 Custom Field 清单里 |
+| `custom_engagement_date` | Date |  | 签约月份 |
 | `custom_grants_abn_snapshot` | Data |  | ABN。存在项目上，是一份快照，不是客户主档 |
 | `custom_grants_state` | Data |  | 州 |
 | `custom_grants_industry_category` | Data |  | 行业 |
 | `custom_grants_type` | Select | R&DTI、EMDG | 补助类型 |
 | `custom_grants_priority` | Select | -、S1、S2、S3、S4 | 优先级 |
-| `custom_grants_salesperson` | Link → `User` |  | 销售。同样由补丁创建 |
+| `custom_grants_salesperson` | Link → `User` |  | 销售 |
 | `custom_grants_partner_label` | Data |  | 合伙人，这里是文字，不是 Link |
 | `custom_grants_referral_text` | Data |  | 推荐人文字 |
 | `custom_grants_owner_name` | Data |  | 负责人文字 |
@@ -490,71 +486,34 @@ Automation Logs 页面给用户看这些运行记录。
 - Report 页只有导航和空页面
 - Settings 里的 Personal Preferences、Notification Preferences 是禁用按钮
 - `Customer.custom_referred_by` 和 Contact 上的推荐人、社交账号字段已经加在单据上，客户页的新建和编辑没有把它们当成主要操作
-- Grants 的 AP 提交、行业批准、报税这三个“日期”存在 Data 字段里，不是 Date，所以不能像真正的日期那样参与“日期到了”的自动化
-- `custom_engagement_date`、`custom_grants_salesperson` 由补丁加到 `Project` 上，和已导出的 Custom Field 清单可能不完全是同一份快照
+- Grants 的 AP 提交、行业批准、报税这三个字段类型是 Data，不是 Date
 - 活动记录这个视图能打开，当前左侧导航没有单独一项
 
 ---
 
 # 第二部分：新系统
 
-这一部分目前只收「系统开发 / 大方向」里已经写下的内容。每节先保留原话，再写从原话里能直接读出来的做法。句子在笔记里没写完的，不往下续。空白条目不填。
+## 1. AI 与代码的分界
 
-## 1. AI 和代码的分界
+未定。两个候选：
 
-原话：
+- Agent 负责复杂任务，本地 AI 负责简单任务。
+- Agent 与代码分离。
 
-> Agent+本地 AI 分别负责复杂任务和简单任务（我自己的想法），还是 agent 和 code，更加纯粹
+## 2. 模块
 
-这是两条还没选定的做法，不是已经定下来的方案。
-
-- 做法 A，你标成自己的想法：用 Agent 和本地 AI 分工。复杂任务和简单任务分开，各由一边负责。
-- 做法 B：Agent 和普通代码分开，分界更纯粹。
-
-笔记在这条下面还有一个空项，内容没写，这里留空。
-
-复杂和简单按什么划分、本地 AI 具体指什么、Agent 调用哪些能力，笔记里没有，先不写。
-
-## 2. 模块化
-
-原话：
-
-> 研究是否能首先完成纯粹的任务管理模块，手动加入数据。其次查看是否能用 API 同步 shared drive
-
-顺序可以从这句话里读出来：
-
-1. 先看能不能做成一块单独的任务管理。这块先靠人手动把数据加进去，不依赖别的数据源也能用。
-2. 这块有了之后，再看 shared drive 能不能通过 API 同步进来。同步是下一步要查的事，不是做任务管理的前提。
-
-任务里有哪些字段、shared drive 是哪一套、同步哪些内容，笔记里没有，先不写。
+1. 先完成独立的任务管理模块。数据人工录入。
+2. 再评估通过 API 同步 shared drive。
 
 ## 3. Dashboard
 
-### 待处理邮件
+### 邮件
 
-原话：
-
-> 待处理邮件提示（接 API 到网页？还是怎么做？）
->
-> 收到邮件后提示，自动编辑对应的回复，但是人工审核，审核后才可发送
->
-> 发送邮件后记录时长，并时刻追踪邮件状态
-
-从这三句能读出的流程是：
-
-1. Dashboard 上要提示有待处理的邮件。提示怎么接到网页上，你写成了问号：接 API，还是用别的办法。这里不选。
-2. 邮件到了之后要提示，并自动写出对应的回复草稿。
-3. 草稿不能直接发出。人审核通过之后才可以发送。
-4. 发出之后记录时长，并持续追踪这封邮件的状态。
-
-时长从哪一刻开始算、邮件状态分成哪几种，笔记里没有，先不写。
-
-这条下面还有一个空项，内容没写，这里留空。
+- Dashboard 提示待处理邮件。接入方式未定。
+- 收到邮件后提示，并自动生成对应回复草稿。
+- 草稿经人工审核后才可发送。
+- 发送后记录时长，并持续追踪邮件状态。
 
 ### 工作状态
 
-原话在这里断了，只保留这一句：
-
-> 工作状态（应当能够足够顺滑，提供
-
-后半句笔记里没有，不补。
+工作状态的操作应当足够顺滑。
