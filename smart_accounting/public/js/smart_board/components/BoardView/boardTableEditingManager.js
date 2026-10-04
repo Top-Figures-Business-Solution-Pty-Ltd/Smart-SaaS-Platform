@@ -121,6 +121,7 @@ export class EditingManager {
 
     this._active = { cellEl, projectName, field, originalHTML, originalValue };
     this._editorInstance = null;
+    cellEl.classList.add('sb-cell-editing');
 
     // Install doc listener to detect click-outside -> commit
     this._installDocOutsideHandler();
@@ -333,6 +334,7 @@ export class EditingManager {
     const { cellEl, originalHTML } = this._active;
     const content = cellEl.querySelector('.cell-content') || cellEl;
     content.innerHTML = originalHTML;
+    cellEl.classList.remove('sb-cell-editing');
     // Destroy any active editor instance (portal/listeners cleanup)
     try { this._editorInstance?.destroy?.(); } catch (e) {}
     this._active = null;
@@ -359,6 +361,7 @@ export class EditingManager {
     }
     // Always destroy editor instance (portal/listeners cleanup)
     try { this._editorInstance?.destroy?.(); } catch (e) {}
+    cellEl.classList.remove('sb-cell-editing');
     this._active = null;
     this._editorInstance = null;
     this._removeDocOutsideHandler();

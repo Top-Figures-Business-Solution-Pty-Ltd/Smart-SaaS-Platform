@@ -317,13 +317,8 @@ export class BoardCell {
     
     formatNotes(notes) {
         if (!notes) return '<span class="text-muted">—</span>';
-        
-        // 截断长文本
-        const maxLength = 100;
-        if (notes.length > maxLength) {
-            return `<span title="${this.escapeHtml(notes)}">${this.escapeHtml(notes.substring(0, maxLength))}...</span>`;
-        }
-        return this.escapeHtml(notes);
+        const safeNotes = this.escapeHtml(notes);
+        return `<span class="sb-notes-preview" title="${safeNotes}">${safeNotes}</span>`;
     }
     
     extractName(email) {
