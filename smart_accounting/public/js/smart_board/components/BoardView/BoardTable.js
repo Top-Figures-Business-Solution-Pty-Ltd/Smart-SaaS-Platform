@@ -22,6 +22,7 @@ import { buildRowModel } from './rowModel.js';
 import { ProjectService } from '../../services/projectService.js';
 import { TaskService } from '../../services/taskService.js';
 import { confirmDialog, notify } from '../../services/uiAdapter.js';
+import { UndoOperationService } from '../../services/undoOperationService.js';
 import { escapeHtml } from '../../utils/dom.js';
 import { exportSelectedProjectsCSV } from '../../utils/csvExport.js';
 import { sanitizeProjectColumnsConfig } from '../../utils/deprecatedColumns.js';
@@ -1231,7 +1232,7 @@ export class BoardTable {
         }
 
         if (action === 'bulk-delete') {
-            const ok = await confirmDialog(`Delete ${names.length} projects? This will also delete linked tasks. This cannot be undone.`);
+            const ok = await confirmDialog(`Delete ${names.length} projects? This will also delete linked tasks after a 10-second undo window.`);
             if (!ok) return;
             await this._bulkDelete();
             return;
@@ -1447,6 +1448,7 @@ export class BoardTable {
     async _bulkUpdateField({ field, value, removeFromListIfFiltered } = {}) {
         const names = this._getSelectedNames();
         if (!names.length) return;
+        const snapshots = names.map((name) => this._snapshotProject(name)).filter(Boolean);
         this._bulkWorking = true;
         this.updateBulkBar();
         try {
@@ -1471,6 +1473,13 @@ export class BoardTable {
             } else {
                 this.scheduleRowsUpdate();
             }
+            if (field === 'is_active') {
+                const verb = String(value) === 'No' ? 'Archived' : 'Updated';
+                UndoOperationService.showManualUndo({
+                    message: `${verb} ${names.length} project${names.length === 1 ? '' : 's'}`,
+                    onUndo: () => this._restoreProjectSnapshots(snapshots),
+                });
+            }
         } catch (e) {
             console.error(e);
             notify('Bulk update failed', 'red');
@@ -1483,21 +1492,31 @@ export class BoardTable {
     async _bulkDelete() {
         const names = this._getSelectedNames();
         if (!names.length) return;
-        this._bulkWorking = true;
-        this.updateBulkBar();
+        const snapshots = names.map((name) => this._snapshotProject(name)).filter(Boolean);
         try {
             for (const name of names) {
-                await ProjectService.deleteProject(name);
                 this.store?.commit?.('projects/removeProject', name);
             }
             this._clearSelection();
+            this.scheduleRowsUpdate();
+            UndoOperationService.scheduleDelayedDelete({
+                message: `Deleted ${names.length} project${names.length === 1 ? '' : 's'}`,
+                onUndo: async () => {
+                    this._restoreSnapshotsToStore(snapshots);
+                    await this._reloadCurrentProjects();
+                },
+                onCommit: async () => {
+                    for (const name of names) {
+                        await ProjectService.deleteProject(name);
+                    }
+                },
+                onCommitSuccess: () => notify(`Delete finalized for ${names.length} project${names.length === 1 ? '' : 's'}`, 'green'),
+                onCommitError: () => this._reloadCurrentProjects(),
+            });
         } catch (e) {
             console.error(e);
             const { getErrorMessage } = await import('../../utils/errorMessage.js');
             notify(getErrorMessage(e) || 'Bulk delete failed', 'red');
-        } finally {
-            this._bulkWorking = false;
-            this.updateBulkBar();
         }
     }
 
@@ -1507,9 +1526,53 @@ export class BoardTable {
             || null;
     }
 
+    _snapshotProject(name) {
+        const row = this._findProjectRow(name);
+        if (!row?.name) return null;
+        return { ...row };
+    }
+
+    _snapshotRestorePayload(snapshot = {}) {
+        const payload = {};
+        for (const field of ['is_active', 'project_type', 'custom_archive_source', 'custom_archive_source_ref']) {
+            if (Object.prototype.hasOwnProperty.call(snapshot, field)) {
+                payload[field] = snapshot[field] == null ? '' : snapshot[field];
+            }
+        }
+        return payload;
+    }
+
+    _restoreSnapshotsToStore(snapshots = []) {
+        const list = Array.isArray(snapshots) ? snapshots.filter((s) => s?.name) : [];
+        if (!list.length) return;
+        const current = this.store?.getState?.()?.projects?.items || [];
+        const existing = new Set((Array.isArray(current) ? current : []).map((p) => p?.name).filter(Boolean));
+        for (const snap of list.slice().reverse()) {
+            if (existing.has(snap.name)) {
+                this.store?.commit?.('projects/updateProject', snap);
+            } else {
+                this.store?.commit?.('projects/addProject', snap);
+            }
+        }
+        this.scheduleRowsUpdate();
+    }
+
+    async _restoreProjectSnapshots(snapshots = []) {
+        const list = Array.isArray(snapshots) ? snapshots.filter((s) => s?.name) : [];
+        if (!list.length) return;
+        for (const snap of list) {
+            const payload = this._snapshotRestorePayload(snap);
+            if (Object.keys(payload).length) {
+                await ProjectService.updateProject(snap.name, payload);
+            }
+        }
+        await this._reloadCurrentProjects();
+    }
+
     async _restoreProjects(names = []) {
         const list = Array.isArray(names) ? names.map((x) => String(x || '').trim()).filter(Boolean) : [];
         if (!list.length) return;
+        const snapshots = list.map((name) => this._snapshotProject(name)).filter(Boolean);
 
         // Projects whose original board was deleted sit on the Archived (Holding)
         // placeholder. They can't be restored onto a non-existent board, so prompt
@@ -1536,7 +1599,10 @@ export class BoardTable {
                 this.store?.commit?.('projects/removeProject', name);
             }
             this._clearSelection();
-            notify(`Restored ${list.length} projects`, 'green');
+            UndoOperationService.showManualUndo({
+                message: `Restored ${list.length} project${list.length === 1 ? '' : 's'}`,
+                onUndo: () => this._restoreProjectSnapshots(snapshots),
+            });
         } catch (e) {
             console.error(e);
             notify('Restore failed', 'red');

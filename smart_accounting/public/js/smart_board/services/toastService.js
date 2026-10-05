@@ -33,17 +33,19 @@ function _ensureRoot() {
   return root;
 }
 
-function _makeToastEl({ message, indicator, sticky }) {
+function _makeToastEl({ message, indicator, sticky, actionLabel }) {
   const ind = _normalizeIndicator(indicator);
   const safe = escapeHtml(String(message ?? ''));
+  const safeAction = escapeHtml(String(actionLabel || ''));
   const el = document.createElement('div');
-  el.className = `sb-toast sb-toast--${ind}`;
+  el.className = `sb-toast sb-toast--${ind}${safeAction ? ' sb-toast--actionable' : ''}`;
   el.setAttribute('role', 'status');
   el.setAttribute('aria-live', 'polite');
   el.setAttribute('data-created-at', String(_now()));
   el.innerHTML = `
     <div class="sb-toast__body">
       <div class="sb-toast__message">${safe}</div>
+      ${safeAction ? `<button type="button" class="sb-toast__action">${safeAction}</button>` : ''}
       <button type="button" class="sb-toast__close" aria-label="Close">×</button>
     </div>
     ${sticky ? '' : '<div class="sb-toast__bar"></div>'}
@@ -76,14 +78,22 @@ export class ToastService {
    * Show a toast.
    * @param {{ message: string, indicator?: string, durationMs?: number, sticky?: boolean }} args
    */
-  static show({ message, indicator = 'blue', durationMs = DEFAULT_DURATION_MS, sticky = false } = {}) {
+  static show({ message, indicator = 'blue', durationMs = DEFAULT_DURATION_MS, sticky = false, actionLabel = '', onAction = null } = {}) {
     if (typeof window === 'undefined' || typeof document === 'undefined') return null;
 
     const msg = String(message ?? '').trim();
     if (!msg) return null;
 
     const root = _ensureRoot();
-    const toast = _makeToastEl({ message: msg, indicator, sticky: !!sticky });
+    const toast = _makeToastEl({ message: msg, indicator, sticky: !!sticky, actionLabel });
+    let timerId = null;
+    let closed = false;
+    const closeToast = () => {
+      if (closed) return;
+      closed = true;
+      if (timerId) clearTimeout(timerId);
+      _removeToast(toast);
+    };
 
     // Newest on top
     root.prepend(toast);
@@ -93,13 +103,29 @@ export class ToastService {
     toast.querySelector('.sb-toast__close')?.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
-      _removeToast(toast);
+      closeToast();
+    });
+
+    toast.querySelector('.sb-toast__action')?.addEventListener('click', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (closed) return;
+      const btn = e.currentTarget;
+      try {
+        btn.disabled = true;
+        if (timerId) clearTimeout(timerId);
+        if (typeof onAction === 'function') await onAction();
+      } catch (err) {
+        console.error('Toast action failed', err);
+      } finally {
+        closeToast();
+      }
     });
 
     // Auto-dismiss
     const dur = Number(durationMs);
     if (!sticky && Number.isFinite(dur) && dur > 0) {
-      setTimeout(() => _removeToast(toast), dur);
+      timerId = setTimeout(closeToast, dur);
     }
 
     return toast;

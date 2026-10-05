@@ -15,6 +15,16 @@ export function notify(message, indicator = 'blue') {
   ToastService.notify(message, indicator);
 }
 
+export function notifyUndoable({ message, actionLabel = 'Undo', onUndo, durationMs = 10000, indicator = 'green' } = {}) {
+  return ToastService.show({
+    message,
+    indicator,
+    durationMs,
+    actionLabel,
+    onAction: onUndo,
+  });
+}
+
 export function confirmDialog(message) {
   return new Promise((resolve) => {
     if (isDesk() && typeof frappe?.confirm === 'function') {

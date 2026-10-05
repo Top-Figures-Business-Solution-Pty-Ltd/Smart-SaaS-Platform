@@ -13,6 +13,7 @@
 import { columnRegistry } from '../../columns/registry.js';
 import { ProjectService } from '../../services/projectService.js';
 import { notify } from '../../services/uiAdapter.js';
+import { UndoOperationService } from '../../services/undoOperationService.js';
 
 export class EditingManager {
   constructor({ rootEl, store, getProjectByName, getSelectedProjectNames, bulkEditableFields } = {}) {
@@ -291,11 +292,15 @@ export class EditingManager {
           }
 
           // Simple field: one request bulk update
-          await ProjectService.bulkSetProjectField(selected, field, value);
+          const resp = await ProjectService.bulkSetProjectField(selected, field, value);
           for (const name of selected) {
             this.store?.commit?.('projects/updateProject', { name, [field]: value });
           }
-          notify(`Updated ${selected.length} projects`, 'green');
+          UndoOperationService.showBatchUndo({
+            message: `Updated ${selected.length} projects`,
+            batchId: resp?.batch_id,
+            onAfterUndo: () => this._reloadCurrentProjects(),
+          });
           return;
         }
       }
@@ -365,6 +370,13 @@ export class EditingManager {
     this._active = null;
     this._editorInstance = null;
     this._removeDocOutsideHandler();
+  }
+
+  async _reloadCurrentProjects() {
+    if (!this.store?.dispatch) return;
+    const state = this.store?.getState?.() || {};
+    const filters = { ...(state?.projects?.lastFilters || {}) };
+    await this.store.dispatch('projects/fetchProjects', filters);
   }
 
   _installDocOutsideHandler() {
