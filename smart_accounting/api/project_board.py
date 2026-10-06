@@ -17,6 +17,12 @@ from typing import Any, Iterable
 import frappe
 from frappe.utils import strip_html, today
 
+from smart_accounting.config.smart_board import (
+	GLOBAL_PROJECT_STATUS_POOL,
+	GRANTS_STATUS_ORDER,
+	GRANTS_YEAR_BOARDS,
+)
+
 
 def _ensure_write_permission(doc) -> None:
 	# Enforce standard permission checks (no ignore_permissions here).
@@ -133,7 +139,94 @@ _SORTABLE_PROJECT_FIELDS = {
 }
 
 
-def _sanitize_project_order_by(order_by: Any) -> str:
+def _extract_project_types_from_filters(filters: Any) -> list[str]:
+	out: list[str] = []
+
+	def _add(value: Any) -> None:
+		if isinstance(value, (list, tuple)):
+			for item in value:
+				_add(item)
+			return
+		name = str(value or "").strip()
+		if name:
+			out.append(name)
+
+	if isinstance(filters, dict):
+		_add(filters.get("project_type"))
+		_add(filters.get("project_type_in"))
+		return out
+
+	if isinstance(filters, list):
+		for row in filters:
+			if not isinstance(row, (list, tuple)) or len(row) < 3:
+				continue
+			if str(row[0] or "").strip() == "project_type":
+				_add(row[2])
+			elif len(row) >= 4 and str(row[1] or "").strip() == "project_type":
+				_add(row[3])
+	return out
+
+
+def _is_grants_status_sort(filters: Any) -> bool:
+	types = _extract_project_types_from_filters(filters)
+	if not types:
+		return False
+	grants = set(GRANTS_YEAR_BOARDS)
+	return all(name in grants for name in types)
+
+
+def _status_rank_map(*, grants: bool) -> dict[str, int]:
+	values = GRANTS_STATUS_ORDER if grants else GLOBAL_PROJECT_STATUS_POOL
+	return {str(v).strip(): idx for idx, v in enumerate(values) if str(v).strip()}
+
+
+def _sort_project_rows_by_status(rows: list[dict], direction: str, *, grants: bool) -> list[dict]:
+	rank = _status_rank_map(grants=grants)
+	unknown = len(rank) + 1
+	desc = direction == "desc"
+
+	def sort_key(row: dict) -> tuple:
+		status = str((row or {}).get("status") or "").strip()
+		name = str((row or {}).get("name") or "")
+		idx = rank.get(status)
+		if idx is None:
+			return (1, unknown, name)
+		return (0, -idx if desc else idx, name)
+
+	return sorted(list(rows or []), key=sort_key)
+
+
+def _parse_status_sort_direction(order_by: Any) -> str | None:
+	raw = str(order_by or "").strip()
+	if not raw:
+		return None
+	first = str(raw.split(",")[0] or "").strip()
+	parts = first.split()
+	field = str(parts[0] or "").strip()
+	if field != "status":
+		return None
+	direction = str(parts[1] or "asc").strip().lower() if len(parts) > 1 else "asc"
+	return "desc" if direction == "desc" else "asc"
+
+
+def _is_count_field_query(fields: Any) -> bool:
+	if not isinstance(fields, list) or len(fields) != 1:
+		return False
+	return str(fields[0] or "").strip().lower().startswith("count(")
+
+
+def _merge_name_in_filter(filters: Any, names: list[str]) -> Any:
+	name_filter = ["name", "in", names]
+	if isinstance(filters, dict):
+		out = dict(filters)
+		out["name"] = ["in", names]
+		return out
+	if isinstance(filters, list):
+		return list(filters) + [name_filter]
+	return [name_filter]
+
+
+def _sanitize_project_order_by(order_by: Any, filters: Any = None) -> str:
 	default = "project_name asc, name asc"
 	raw = str(order_by or "").strip()
 	if not raw:
@@ -158,6 +251,9 @@ def _sanitize_project_order_by(order_by: Any) -> str:
 			return default
 		if field == "name":
 			return f"name {direction}"
+		if field == "status":
+			# Workflow order is applied in Python. Keep a legal SQL fallback here.
+			return "name asc"
 		return f"{field} {direction}, name asc"
 	except Exception:
 		return default
@@ -657,7 +753,7 @@ def get_projects_list(
 	req_fields = _sanitize_project_list_fields(fields)
 	req_filters = filters if isinstance(filters, (list, dict)) else []
 	req_or_filters = _normalize_list(or_filters)
-	safe_order_by = _sanitize_project_order_by(order_by)
+	safe_order_by = _sanitize_project_order_by(order_by, req_filters)
 
 	try:
 		limit_start = int(limit_start or 0)
@@ -670,16 +766,49 @@ def get_projects_list(
 	limit_start = max(0, limit_start)
 	limit_page_length = max(1, min(1000, limit_page_length))
 
+	status_direction = None if _is_count_field_query(req_fields) else _parse_status_sort_direction(order_by)
+
 	try:
-		rows = frappe.get_list(
-			"Project",
-			fields=req_fields or ["name"],
-			filters=req_filters,
-			or_filters=req_or_filters,
-			order_by=safe_order_by,
-			limit_start=limit_start,
-			limit_page_length=limit_page_length,
-		)
+		if status_direction:
+			id_rows = frappe.get_list(
+				"Project",
+				fields=["name", "status"],
+				filters=req_filters,
+				or_filters=req_or_filters,
+				order_by="name asc",
+				limit_start=0,
+				limit_page_length=10000,
+			)
+			sorted_ids = _sort_project_rows_by_status(
+				id_rows,
+				status_direction,
+				grants=_is_grants_status_sort(req_filters),
+			)
+			page_ids = sorted_ids[limit_start:limit_start + limit_page_length]
+			names = [str(row.get("name") or "").strip() for row in page_ids if row.get("name")]
+			if not names:
+				return {"items": []}
+			rows = frappe.get_list(
+				"Project",
+				fields=req_fields or ["name"],
+				filters=_merge_name_in_filter(req_filters, names),
+				or_filters=req_or_filters,
+				order_by="name asc",
+				limit_start=0,
+				limit_page_length=len(names),
+			)
+			by_name = {str(row.get("name") or "").strip(): row for row in (rows or [])}
+			rows = [by_name[name] for name in names if name in by_name]
+		else:
+			rows = frappe.get_list(
+				"Project",
+				fields=req_fields or ["name"],
+				filters=req_filters,
+				or_filters=req_or_filters,
+				order_by=safe_order_by,
+				limit_start=limit_start,
+				limit_page_length=limit_page_length,
+			)
 	except frappe.PermissionError:
 		# Keep old behavior: return empty if user cannot read Project.
 		return {"items": []}

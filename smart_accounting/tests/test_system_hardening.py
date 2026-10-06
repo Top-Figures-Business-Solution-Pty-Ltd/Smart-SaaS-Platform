@@ -28,6 +28,23 @@ class TestSmartBoardConfig(FrappeTestCase):
 		for board in GRANTS_YEAR_BOARDS:
 			self.assertRegex(board, r"^FY \d{4}$")
 
+	def test_grants_status_sort_uses_workflow_order(self):
+		from smart_accounting.api.project_board import _sort_project_rows_by_status
+
+		rows = _sort_project_rows_by_status(
+			[
+				{"name": "P3", "status": "Waiting for tech meeting"},
+				{"name": "P1", "status": "Waiting for payment"},
+				{"name": "P2", "status": "Waiting for kickoff"},
+			],
+			"asc",
+			grants=True,
+		)
+		self.assertEqual(
+			[row["status"] for row in rows],
+			["Waiting for kickoff", "Waiting for tech meeting", "Waiting for payment"],
+		)
+
 
 class TestAuthzHelpers(FrappeTestCase):
 	def test_guest_is_not_admin_like(self):
