@@ -42,7 +42,8 @@ export const STATUS_COLORS = {
     'Waiting for kickoff': '#f97316', // orange
     'Waiting for tech meeting': '#c084fc', // light purple
     'Waiting for tech evidence': '#a78bfa', // lavender
-    'Waiting for evidence review': '#8b5cf6', // violet
+    'Reviewing R&D Evidence': '#8b5cf6', // violet
+    'Waiting for evidence review': '#8b5cf6', // legacy alias
     'Preparing R&D report': '#0d9488', // teal
     'Waiting for report review and signature': '#7c3aed', // deep violet
     'Preparing application form': '#14b8a6', // mint teal

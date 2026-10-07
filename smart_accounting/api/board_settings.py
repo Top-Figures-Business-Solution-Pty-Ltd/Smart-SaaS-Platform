@@ -100,7 +100,7 @@ _STATUS_PROJECT_TYPE_SCOPE: dict[str, set[str]] = {
 	"Waiting for kickoff": SMART_GRANTS_BOARDS,
 	"Waiting for tech meeting": SMART_GRANTS_BOARDS,
 	"Waiting for tech evidence": SMART_GRANTS_BOARDS,
-	"Waiting for evidence review": SMART_GRANTS_BOARDS,
+	"Reviewing R&D Evidence": SMART_GRANTS_BOARDS,
 	"Preparing R&D report": SMART_GRANTS_BOARDS,
 	"Waiting for report review and signature": SMART_GRANTS_BOARDS,
 	"Preparing application form": SMART_GRANTS_BOARDS,

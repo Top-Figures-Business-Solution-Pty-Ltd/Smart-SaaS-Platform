@@ -17,7 +17,7 @@ TG_TAX_AGENT_OPTIONS = ["TG - Yes", "No"]
 WAITING_FOR_KICKOFF = "Waiting for kickoff"
 WAITING_FOR_TECH_MEETING = "Waiting for tech meeting"
 WAITING_FOR_TECH_EVIDENCE = "Waiting for tech evidence"
-WAITING_FOR_EVIDENCE_REVIEW = "Waiting for evidence review"
+WAITING_FOR_EVIDENCE_REVIEW = "Reviewing R&D Evidence"
 
 
 def execute():

@@ -1030,7 +1030,7 @@ export class BoardTable {
                 '- Waiting for kickoff',
                 '- Waiting for tech meeting',
                 '- Waiting for tech evidence',
-                '- Waiting for evidence review',
+                '- Reviewing R&D Evidence',
                 '- Preparing R&D report',
                 '- Waiting for report review and signature',
                 '- Preparing application form',

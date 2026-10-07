@@ -28,6 +28,14 @@ class TestSmartBoardConfig(FrappeTestCase):
 		for board in GRANTS_YEAR_BOARDS:
 			self.assertRegex(board, r"^FY \d{4}$")
 
+	def test_reviewing_evidence_keeps_workflow_position(self):
+		self.assertIn("Reviewing R&D Evidence", GRANTS_STATUS_ORDER)
+		self.assertNotIn("Waiting for evidence review", GRANTS_STATUS_ORDER)
+		self.assertEqual(
+			GRANTS_STATUS_ORDER.index("Reviewing R&D Evidence"),
+			GRANTS_STATUS_ORDER.index("Waiting for tech evidence") + 1,
+		)
+
 	def test_grants_status_sort_uses_workflow_order(self):
 		from smart_accounting.api.project_board import _sort_project_rows_by_status
 
