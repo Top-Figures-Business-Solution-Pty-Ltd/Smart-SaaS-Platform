@@ -259,6 +259,7 @@ export class BoardCell {
             { abbr: 'TF', className: 'company-tf', aliases: ['TF', 'Top Figures'] },
             { abbr: 'TG', className: 'company-tg', aliases: ['TG', 'Top Grants'] },
             { abbr: 'VT', className: 'company-vt', aliases: ['VT', 'VERITAX PARTNERS', 'Veritax Partners'] },
+            { abbr: 'ATP', className: 'company-atp', aliases: ['ATP', 'Atlas Tax Partner'] },
         ];
 
         const match = companyBadges.find(({ aliases }) => aliases.some((alias) => text.includes(alias)));

@@ -1310,6 +1310,11 @@
     color: #5b21b6;
 }
 
+.company-badge.company-atp {
+    background: #ffedd5;
+    color: #9a3412;
+}
+
 .no-data {
     padding: 40px;
     text-align: center;
