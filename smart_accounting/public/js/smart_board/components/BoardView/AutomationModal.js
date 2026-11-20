@@ -54,7 +54,8 @@ export class AutomationModal {
     content.className = 'sb-automation';
     content.innerHTML = `
       <div class="sb-automation__hint text-muted">
-        Configure automations: When a trigger fires → execute actions automatically.
+        Configure automations: When all triggers match → execute actions.
+        Date rules also run hourly. Changing status or that date field can run them immediately.
       </div>
       <div class="sb-automation__list" id="sbAutoList"></div>
     `;
@@ -520,6 +521,7 @@ export class AutomationModal {
             <input class="form-control sb-auto__name" data-idx="${idx}" type="text" maxlength="140" placeholder="Automation name" value="${escapeHtml(automationName)}" />
           </div>
           ${triggersHTML}
+          ${this._dateReachesCatchupWarningHTML(item)}
           <div class="sb-automation__rule-actions-bar">
             <button class="btn btn-default btn-sm sb-auto__add-trigger" data-idx="${idx}" type="button">+ And Trigger</button>
           </div>
@@ -1208,6 +1210,20 @@ export class AutomationModal {
     const rows = this.items.map((item, idx) => ({ item, idx }));
     if (!q) return rows;
     return rows.filter(({ item, idx }) => this._displayName(item, idx).toLowerCase().includes(q));
+  }
+
+  _dateReachesCatchupWarningHTML(item) {
+    const triggers = Array.isArray(item?.triggers) ? item.triggers : [];
+    const hasStatusChange = triggers.some((t) => String(t?.trigger_type || '').trim() === 'status_change');
+    const hasOnOrAfter = triggers.some((t) => {
+      if (String(t?.trigger_type || '').trim() !== 'date_reaches') return false;
+      return String(t?.config?.mode || 'on').trim() === 'on_or_after';
+    });
+    if (!hasStatusChange || !hasOnOrAfter) return '';
+    return `<div class="sb-auto__config-caption" style="margin:6px 0 0; color:#b45309;">
+      Overdue catch-up will not run from the hourly job because "Status changes to" only matches when someone edits status.
+      Use "Status is" with "On or after" for clock-based catch-up.
+    </div>`;
   }
 
   _getRuleSaveBlockReason(item) {

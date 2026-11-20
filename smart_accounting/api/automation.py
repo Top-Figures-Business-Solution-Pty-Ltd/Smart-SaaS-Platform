@@ -8,7 +8,7 @@ Website-safe (/smart) — all endpoints are whitelisted.
 import json
 import frappe
 from typing import Any
-from frappe.utils import today
+from frappe.utils import add_days, getdate, today
 from smart_accounting.api.authz import ensure_admin_for_http_request, ensure_admin_like, ensure_logged_in
 
 
@@ -117,10 +117,20 @@ TRIGGER_TYPES = {
                 "label": "When",
                 "type": "select",
                 "options": [
-                    {"value": "on", "label": "On date"},
-                    {"value": "on_or_after", "label": "On or after date"},
+                    {
+                        "value": "on",
+                        "label": "On that date only (does not catch overdue)",
+                    },
+                    {
+                        "value": "on_or_after",
+                        "label": "On or after that date (hourly catch-up for overdue)",
+                    },
                 ],
                 "default": "on",
+            },
+            {
+                "type": "caption",
+                "text": "Date rules also run hourly. Changing status or this date can run them immediately.",
             },
         ],
     },
@@ -577,24 +587,135 @@ def save_automation(
     }
 
 
-def _has_date_reaches_trigger(trigger_config: Any, trigger_type: str | None = None) -> bool:
+# Overdue catch-up window for date_reaches mode=on_or_after.
+# `on` (default) is still exact-today and does not use this window.
+DATE_REACHES_CATCHUP_DAYS = 730
+
+
+def _normalize_date_reaches_mode(mode: Any) -> str:
+    value = str(mode or "on").strip() or "on"
+    return "on_or_after" if value == "on_or_after" else "on"
+
+
+def date_reaches_value_matches(val, mode: Any, today_d=None) -> bool:
+    """True when a Project date value satisfies date_reaches mode against site today."""
+    if not val:
+        return False
+    try:
+        d = getdate(val)
+    except Exception:
+        return False
+    if not d:
+        return False
+    today_d = getdate(today_d) if today_d else getdate(today())
+    if _normalize_date_reaches_mode(mode) == "on_or_after":
+        return d <= today_d
+    return d == today_d
+
+
+def date_reaches_save_edge_allowed(status_changed: bool, changed_fields, date_fields) -> bool:
+    """Save-time date_reaches rules fire only on a status or date-field edge."""
+    if status_changed:
+        return True
+    changed = {str(x or "").strip() for x in (changed_fields or []) if str(x or "").strip()}
+    wanted = {str(x or "").strip() for x in (date_fields or []) if str(x or "").strip()}
+    return bool(changed & wanted)
+
+
+def _iter_date_reaches_clauses(trigger_config: Any, trigger_type: str | None = None):
     tc = _parse_json(trigger_config)
     trs = tc.get("triggers") if isinstance(tc, dict) else None
-    if isinstance(trs, list):
-        for t in trs:
-            if isinstance(t, dict) and str(t.get("trigger_type") or "").strip() == "date_reaches":
-                return True
-        return False
+    if not isinstance(trs, list):
+        trs = [{"trigger_type": trigger_type, "config": tc}]
+    for t in trs:
+        if not isinstance(t, dict):
+            continue
+        if str(t.get("trigger_type") or "").strip() != "date_reaches":
+            continue
+        cfg = t.get("config") or {}
+        if isinstance(cfg, str):
+            cfg = _parse_json(cfg)
+        if not isinstance(cfg, dict):
+            cfg = {}
+        field = str(cfg.get("date_field") or "").strip()
+        if not field:
+            continue
+        yield field, _normalize_date_reaches_mode(cfg.get("mode"))
+
+
+def _has_date_reaches_trigger(trigger_config: Any, trigger_type: str | None = None) -> bool:
+    for _field, _mode in _iter_date_reaches_clauses(trigger_config, trigger_type):
+        return True
     return str(trigger_type or "").strip() == "date_reaches"
+
+
+def date_reaches_candidate_or_filters(date_autos: list | None, today_s: str | None = None) -> list:
+    """
+    Project or_filters for scheduler date_reaches candidates.
+
+    - Fields used only with mode `on`: field = today
+    - Fields used by any `on_or_after` rule: today-730d <= field <= today
+    Per-rule matching still requires exact-today for mode `on`.
+    """
+    today_s = str(today_s or today() or "").strip()
+    field_catchup: dict[str, bool] = {}
+    for a in date_autos or []:
+        for field, mode in _iter_date_reaches_clauses(a.get("trigger_config"), a.get("trigger_type")):
+            if mode == "on_or_after":
+                field_catchup[field] = True
+            else:
+                field_catchup.setdefault(field, False)
+    if not field_catchup:
+        return []
+    lookback_s = str(add_days(getdate(today_s), -DATE_REACHES_CATCHUP_DAYS))
+    or_filters = []
+    for field in sorted(field_catchup):
+        if field_catchup[field]:
+            or_filters.append([field, "between", [lookback_s, today_s]])
+        else:
+            or_filters.append([field, "=", today_s])
+    return or_filters
+
+
+def _load_date_reaches_candidate_names(date_autos: list | None) -> list[str]:
+    or_filters = date_reaches_candidate_or_filters(date_autos)
+    if not or_filters:
+        return []
+    rows = frappe.get_all(
+        "Project",
+        fields=["name"],
+        filters={"is_active": "Yes"},
+        or_filters=or_filters,
+        limit_page_length=20000,
+    )
+    return [str(r.get("name") or "").strip() for r in (rows or []) if str(r.get("name") or "").strip()]
+
+
+def _execute_date_reaches_on_projects(names: list[str], event: str) -> dict:
+    updated = 0
+    ev = str(event or "hourly").strip() or "hourly"
+    for name in names:
+        try:
+            doc = frappe.get_doc("Project", name)
+            changed = bool(doc._run_board_automations({"event": ev}))
+            if changed:
+                doc.flags.skip_board_automation = True
+                doc.save(ignore_permissions=True)
+                updated += 1
+        except Exception:
+            frappe.log_error(
+                title=f"Board Automation {ev} runner",
+                message=frappe.get_traceback(),
+            )
+            continue
+    return {"ok": True, "checked": len(names), "updated": updated}
 
 
 @frappe.whitelist()
 def run_due_date_automations_daily() -> dict:
     """
-    Daily scheduler entry:
-    - Finds automations that include date_reaches trigger.
-    - Loads candidate projects where at least one configured date field == today.
-    - Executes actions once via CustomProject automation engine.
+    Daily scheduler entry (kept for manual bench execute; not auto-scheduled).
+    Uses the same date_reaches candidate scan as the hourly runner.
     """
     _ensure_scheduler_request_allowed()
     autos = frappe.get_all(
@@ -604,64 +725,15 @@ def run_due_date_automations_daily() -> dict:
         limit_page_length=1000,
     )
     date_autos = [a for a in (autos or []) if _has_date_reaches_trigger(a.get("trigger_config"), a.get("trigger_type"))]
-    if not date_autos:
-        return {"ok": True, "checked": 0, "updated": 0}
-
-    # Collect configured date fields from all date_reaches trigger clauses.
-    date_fields = set()
-    for a in date_autos:
-        tc = _parse_json(a.get("trigger_config"))
-        trs = tc.get("triggers") if isinstance(tc, dict) else None
-        if not isinstance(trs, list):
-            trs = [{"trigger_type": a.get("trigger_type"), "config": tc}]
-        for t in trs:
-            if not isinstance(t, dict):
-                continue
-            if str(t.get("trigger_type") or "").strip() != "date_reaches":
-                continue
-            cfg = t.get("config") or {}
-            if isinstance(cfg, str):
-                try:
-                    cfg = json.loads(cfg)
-                except Exception:
-                    cfg = {}
-            fn = str((cfg or {}).get("date_field") or "").strip()
-            if fn:
-                date_fields.add(fn)
-    if not date_fields:
-        return {"ok": True, "checked": 0, "updated": 0}
-
-    # Build OR filters: any configured date field equals today.
-    or_filters = [[f, "=", today()] for f in sorted(date_fields)]
-    rows = frappe.get_all(
-        "Project",
-        fields=["name"],
-        filters={"is_active": "Yes"},
-        or_filters=or_filters,
-        limit_page_length=20000,
-    )
-    names = [str(r.get("name") or "").strip() for r in (rows or []) if str(r.get("name") or "").strip()]
-    updated = 0
-    for name in names:
-        try:
-            doc = frappe.get_doc("Project", name)
-            # Execute now, then save once; skip validate-time second pass.
-            changed = bool(doc._run_board_automations({"event": "daily"}))
-            if changed:
-                doc.flags.skip_board_automation = True
-                doc.save(ignore_permissions=True)
-                updated += 1
-        except Exception:
-            continue
-
-    return {"ok": True, "checked": len(names), "updated": updated}
+    names = _load_date_reaches_candidate_names(date_autos)
+    return _execute_date_reaches_on_projects(names, "daily")
 
 
 @frappe.whitelist()
 def run_due_date_automations_hourly() -> dict:
     """
     Hourly catch-up runner for date_reaches automations.
-    Uses the same candidate and trigger semantics as daily runner.
+    `on` candidates are exact-today; `on_or_after` includes dates in the last 730 days.
     """
     _ensure_scheduler_request_allowed()
     autos = frappe.get_all(
@@ -671,54 +743,8 @@ def run_due_date_automations_hourly() -> dict:
         limit_page_length=1000,
     )
     date_autos = [a for a in (autos or []) if _has_date_reaches_trigger(a.get("trigger_config"), a.get("trigger_type"))]
-    if not date_autos:
-        return {"ok": True, "checked": 0, "updated": 0}
-
-    date_fields = set()
-    for a in date_autos:
-        tc = _parse_json(a.get("trigger_config"))
-        trs = tc.get("triggers") if isinstance(tc, dict) else None
-        if not isinstance(trs, list):
-            trs = [{"trigger_type": a.get("trigger_type"), "config": tc}]
-        for t in trs:
-            if not isinstance(t, dict):
-                continue
-            if str(t.get("trigger_type") or "").strip() != "date_reaches":
-                continue
-            cfg = t.get("config") or {}
-            if isinstance(cfg, str):
-                try:
-                    cfg = json.loads(cfg)
-                except Exception:
-                    cfg = {}
-            fn = str((cfg or {}).get("date_field") or "").strip()
-            if fn:
-                date_fields.add(fn)
-    if not date_fields:
-        return {"ok": True, "checked": 0, "updated": 0}
-
-    or_filters = [[f, "=", today()] for f in sorted(date_fields)]
-    rows = frappe.get_all(
-        "Project",
-        fields=["name"],
-        filters={"is_active": "Yes"},
-        or_filters=or_filters,
-        limit_page_length=20000,
-    )
-    names = [str(r.get("name") or "").strip() for r in (rows or []) if str(r.get("name") or "").strip()]
-    updated = 0
-    for name in names:
-        try:
-            doc = frappe.get_doc("Project", name)
-            changed = bool(doc._run_board_automations({"event": "hourly"}))
-            if changed:
-                doc.flags.skip_board_automation = True
-                doc.save(ignore_permissions=True)
-                updated += 1
-        except Exception:
-            continue
-
-    return {"ok": True, "checked": len(names), "updated": updated}
+    names = _load_date_reaches_candidate_names(date_autos)
+    return _execute_date_reaches_on_projects(names, "hourly")
 
 
 def _has_grants_highlight_automation(autos: list[dict]) -> bool:

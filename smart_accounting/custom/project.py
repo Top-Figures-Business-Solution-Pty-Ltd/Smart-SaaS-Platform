@@ -445,9 +445,9 @@ class CustomProject(Project):
 
         ev = str((context or {}).get("event") or "validate").strip()
         # Snapshot the user's original status change BEFORE any automation modifies it.
-        # In daily scheduler context there is no "before-save" doc, so force changed=False.
+        # Scheduler loads a stored doc; there is no in-save status edit, so force changed=False.
         self._sb_original_status = str(self.status or "").strip()
-        self._sb_status_changed = False if ev == "daily" else self.has_value_changed("status")
+        self._sb_status_changed = False if ev in {"daily", "hourly"} else self.has_value_changed("status")
         try:
             automations = frappe.get_all(
                 "Board Automation",
@@ -479,6 +479,13 @@ class CustomProject(Project):
                             changed_any = True
                     continue
 
+                # Accounting date_reaches is a condition. On save it may only fire
+                # when status changed or a date field in this rule changed. Scheduler
+                # is the clock edge and skips this extra gate.
+                if ev not in {"daily", "hourly"} and self._sb_automation_has_date_reaches(auto):
+                    if not self._sb_date_reaches_save_edge(auto):
+                        continue
+
                 # Skip idempotent grants highlight re-affirmations: if applying the
                 # automation would not change the row's highlight, do nothing (no log,
                 # no execution-count bump). Keeps scheduler runs cheap and quiet.
@@ -499,6 +506,12 @@ class CustomProject(Project):
                 exec_result = self._execute_actions(auto, run_ctx=run_ctx)
                 changed_any = bool((exec_result or {}).get("changed_any")) or changed_any
                 self._finish_automation_run_log(run_ctx, exec_result=exec_result)
+                if (
+                    ev not in {"daily", "hourly"}
+                    and self._sb_automation_has_date_reaches(auto)
+                    and not self._sb_automation_has_highlight(auto)
+                ):
+                    self._try_claim_scheduler_rule_today(auto)
             except Exception as e:
                 self._finish_automation_run_log(run_ctx, exec_result=None, failed=True, error_details=str(e))
                 frappe.log_error(
@@ -568,9 +581,7 @@ class CustomProject(Project):
         self.custom_board_row_highlight_by = ""
         return True
 
-    def _trigger_matches(self, auto, context=None):
-        """Check if this automation's trigger matches the current document change.
-        Uses the snapshot taken before any automation modified fields."""
+    def _iter_automation_triggers(self, auto):
         config = _parse_json(auto.get("trigger_config"))
         triggers = config.get("triggers") if isinstance(config, dict) else None
         if not isinstance(triggers, list) or not triggers:
@@ -580,20 +591,53 @@ class CustomProject(Project):
             }]
         for tr in triggers:
             if not isinstance(tr, dict):
-                return False
+                continue
             tt = str(tr.get("trigger_type") or "").strip()
             tc = tr.get("config") or {}
             if isinstance(tc, str):
                 tc = _parse_json(tc)
             if not isinstance(tc, dict):
                 tc = {}
+            yield tt, tc
+
+    def _sb_automation_has_date_reaches(self, auto) -> bool:
+        return any(tt == "date_reaches" for tt, _tc in self._iter_automation_triggers(auto))
+
+    def _sb_date_reaches_save_edge(self, auto) -> bool:
+        from smart_accounting.api.automation import date_reaches_save_edge_allowed
+
+        date_fields = []
+        for tt, tc in self._iter_automation_triggers(auto):
+            if tt != "date_reaches":
+                continue
+            field = str((tc or {}).get("date_field") or "").strip()
+            if field:
+                date_fields.append(field)
+        changed_fields = []
+        for field in date_fields:
+            try:
+                if self.has_value_changed(field):
+                    changed_fields.append(field)
+            except Exception:
+                continue
+        return date_reaches_save_edge_allowed(
+            bool(getattr(self, "_sb_status_changed", False)),
+            changed_fields,
+            date_fields,
+        )
+
+    def _trigger_matches(self, auto, context=None):
+        """Check if this automation's trigger matches the current document change.
+        Uses the snapshot taken before any automation modified fields."""
+        clauses = list(self._iter_automation_triggers(auto))
+        if not clauses:
+            return False
+        for tt, tc in clauses:
             if not self._single_trigger_matches(tt, tc, context=context):
                 return False
         return True
 
     def _single_trigger_matches(self, trigger_type: str, config: dict, context=None) -> bool:
-        ev = str((context or {}).get("event") or "validate").strip()
-
         if trigger_type == "status_change":
             to_value = str(config.get("to_value") or "").strip()
             if not to_value:
@@ -616,31 +660,15 @@ class CustomProject(Project):
             return str(getattr(self, "project_type", "") or "").strip() == want
 
         if trigger_type == "date_reaches":
+            from smart_accounting.api.automation import date_reaches_value_matches
+
             field = str(config.get("date_field") or "").strip()
-            mode = str(config.get("mode") or "on").strip() or "on"
             if not field:
                 return False
-            val = getattr(self, field, None)
-            if not val:
-                return False
-            d = getdate(val)
-            today_d = getdate(frappe.utils.today())
-            if ev == "daily":
-                # Daily runner should fire once on the exact date.
-                return d == today_d
-            if ev == "hourly":
-                # Hourly catch-up uses the same exact-date rule; repetition is controlled by cache guard.
-                return d == today_d
-            # validate/manual save path
-            try:
-                changed = self.has_value_changed(field)
-            except Exception:
-                changed = False
-            if not changed:
-                return False
-            if mode == "on_or_after":
-                return d <= today_d
-            return d == today_d
+            return date_reaches_value_matches(
+                getattr(self, field, None),
+                config.get("mode"),
+            )
 
         # ---- Smart Grants: condition-based, idempotent triggers ----
         if trigger_type == "date_arrives":
